@@ -271,3 +271,11 @@ button:hover {
         font-size: 45px;
     }
 }
+
+/* =================================
+   LIENZO DE P5.JS
+================================= */
+
+canvas {
+    display: block;
+}
