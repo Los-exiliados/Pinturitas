@@ -1,0 +1,140 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="Pinceladas de vida: una experiencia de arte interactivo.">
+
+    <title>Pinceladas de vida</title>
+
+    <!-- Hoja de estilos -->
+    <link rel="stylesheet" href="estilos.css">
+</head>
+
+<body>
+
+    <!-- PANTALLA 1: BIENVENIDA -->
+    <main id="inicio" class="pantalla activa">
+
+        <header class="encabezado">
+            <a href="#" class="logo">PINCELADAS DE VIDA</a>
+            <span class="numero-seccion">EXPERIENCIA INTERACTIVA / 001</span>
+        </header>
+
+        <section class="portada">
+
+            <div class="portada-texto">
+                <p class="etiqueta">EL ARTE COBRA VIDA</p>
+
+                <h1>
+                    El arte cobra
+                    <em>vida en tus manos.</em>
+                </h1>
+
+                <p class="descripcion">
+                    Explora el universo de la pintura a través
+                    del movimiento y la interacción.
+                </p>
+
+                <button id="btnEntrar">
+                    Explorar experiencia →
+                </button>
+            </div>
+
+            <div class="portada-imagen">
+                <!-- Aquí irá la imagen de La noche estrellada -->
+            </div>
+
+        </section>
+
+        <footer class="pie-pagina">
+            <span>EXPLORA · EXPERIMENTA · CREA</span>
+            <span>2026</span>
+        </footer>
+
+    </main>
+
+
+    <!-- PANTALLA 2: GALERÍA -->
+    <section id="galeria" class="pantalla">
+
+        <header>
+            <p>01 / COLECCIÓN</p>
+            <h2>Explora las obras</h2>
+            <p>Selecciona una pintura para comenzar tu experiencia.</p>
+        </header>
+
+        <div id="contenedorObras">
+            <!-- Las obras se incorporarán aquí -->
+        </div>
+
+        <button id="btnVolverInicio">Volver al inicio</button>
+
+    </section>
+
+
+    <!-- PANTALLA 3: INSTRUCCIONES -->
+    <section id="instrucciones" class="pantalla">
+
+        <header>
+            <p>02 / PREPARA TU EXPERIENCIA</p>
+            <h2>El movimiento crea.</h2>
+        </header>
+
+        <div class="instrucciones-contenido">
+            <p>
+                Utiliza tus manos frente a la cámara para
+                interactuar con los elementos de la pintura.
+            </p>
+
+            <button id="btnActivarCamara">
+                Activar cámara
+            </button>
+        </div>
+
+        <button id="btnVolverGaleria">Volver a la galería</button>
+
+    </section>
+
+
+    <!-- PANTALLA 4: EXPERIENCIA INTERACTIVA -->
+    <section id="experiencia" class="pantalla">
+
+        <header class="barra-experiencia">
+            <h2 id="tituloObra">La noche estrellada</h2>
+
+            <div class="controles">
+                <button id="btnPausar">Pausar</button>
+                <button id="btnReiniciar">Reiniciar</button>
+                <button id="btnSalir">Salir</button>
+            </div>
+        </header>
+
+        <div id="contenedorLienzo">
+            <!-- Aquí se mostrará el canvas de p5.js -->
+        </div>
+
+    </section>
+
+
+    <!-- PANTALLA 5: FINALIZACIÓN -->
+    <section id="finalizado" class="pantalla">
+
+        <h2>Tu obra ha cobrado vida.</h2>
+
+        <p>Gracias por formar parte de esta experiencia.</p>
+
+        <button id="btnGuardar">Guardar creación</button>
+        <button id="btnVolverGaleriaFinal">Volver a la galería</button>
+
+    </section>
+
+
+    <!-- JavaScript de la interfaz -->
+    <script src="js/ui.js"></script>
+
+</body>
+</html>
