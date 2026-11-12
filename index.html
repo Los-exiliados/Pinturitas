@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 
@@ -26,38 +25,56 @@
     <!-- PANTALLA 1: BIENVENIDA -->
     <main id="inicio" class="pantalla activa">
 
-        <header class="encabezado">
+        <!-- Atmósfera: manchas de color, grano y partículas -->
+        <div class="atmosfera" aria-hidden="true">
+            <span class="mancha mancha--a"></span>
+            <span class="mancha mancha--b"></span>
+            <span class="mancha mancha--c"></span>
+            <div id="particulas" class="particulas"></div>
+            <span class="grano"></span>
+        </div>
+
+        <header class="barra">
             <a href="#" class="logo">PINCELADAS DE VIDA</a>
-            <span class="numero-seccion">EXPERIENCIA INTERACTIVA / 001</span>
+            <span class="indice">EXPERIENCIA INTERACTIVA · 001</span>
         </header>
 
-        <section class="portada">
+        <section class="escena escena--inicio">
 
-            <div class="portada-texto">
-                <p class="etiqueta">EL ARTE COBRA VIDA</p>
+            <!-- Fragmentos de obras: se generan desde js/ui.js -->
+            <div id="obrasFlotantes" class="collage" aria-hidden="true"></div>
 
-                <h1>
-                    El arte cobra
-                    <em>vida en tus manos.</em>
+            <div class="bloque">
+
+                <p class="kicker"><span class="regla" aria-hidden="true"></span>EL ARTE COBRA VIDA</p>
+
+                <h1 class="titular">
+                    <span class="t-bienvenido">Bienvenido</span>
+                    <span class="t-conector">a</span>
+                    <span class="t-nombre">Pinceladas<br>de vida</span>
                 </h1>
 
-                <p class="descripcion">
-                    Explora el universo de la pintura a través
-                    del movimiento y la interacción.
+                <p class="cita">
+                    «El arte no solo se observa, también se siente,
+                    se mueve y se transforma».
                 </p>
 
-                <button id="btnEntrar">
-                    Explorar experiencia →
-                </button>
+                <p class="invita">
+                    Acércate, explora y descubre lo que tus manos pueden crear.
+                </p>
+
+                <div class="acciones">
+                    <button id="btnEntrar" class="boton">Explorar experiencia</button>
+                    <p class="pista"><span class="pulso" aria-hidden="true"></span>Cerrá el puño para entrar</p>
+                </div>
+
             </div>
 
-            <div class="portada-imagen">
-                <!-- Aquí irá la composición artística de bienvenida -->
-            </div>
+            <span class="marca marca--izq" aria-hidden="true">SALA 01 · INSTALACIÓN</span>
 
         </section>
 
-        <footer class="pie-pagina">
+        <footer class="pie">
             <span>EXPLORA · EXPERIMENTA · CREA</span>
             <span>2026</span>
         </footer>
@@ -68,17 +85,28 @@
     <!-- PANTALLA 2: GALERÍA -->
     <section id="galeria" class="pantalla">
 
-        <header>
-            <p>01 / COLECCIÓN</p>
-            <h2>Explora las obras</h2>
-            <p>Selecciona una pintura para comenzar tu experiencia.</p>
+        <header class="barra">
+            <a href="#" class="logo">PINCELADAS DE VIDA</a>
+
+            <div class="barra-derecha">
+                <span class="indice">02 / COLECCIÓN</span>
+                <button id="btnVolverInicio" class="boton boton--fantasma">Volver al inicio</button>
+            </div>
         </header>
 
-        <div id="contenedorObras">
-            <!-- Las obras se incorporarán aquí -->
-        </div>
+        <section class="escena escena--galeria">
 
-        <button id="btnVolverInicio">Volver al inicio</button>
+            <h2 class="solo-lectores">Galería de obras</h2>
+
+            <!-- Las seis obras se generan desde js/ui.js -->
+            <div id="contenedorObras" class="piezas"></div>
+
+        </section>
+
+        <footer class="pie pie--galeria">
+            <p id="estadoObra" class="estado" role="status" aria-live="polite">Elegí una obra para comenzar.</p>
+            <span class="pie-nota">PULGAR ARRIBA PARA VOLVER</span>
+        </footer>
 
     </section>
 
@@ -140,10 +168,23 @@
     </section>
 
 
+    <!-- CAPAS COMPARTIDAS: confirmación del gesto y transición -->
+    <div id="cargaPuño" class="carga" role="status" aria-live="polite">
+        <svg class="anillo" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="46"></circle>
+        </svg>
+        <p class="carga-texto">Gesto reconocido</p>
+    </div>
+
+    <div id="transicion" class="transicion" aria-hidden="true"></div>
+
     <!-- SCRIPTS DEL PROYECTO -->
 
     <!-- Detección de manos -->
     <script src="js/handpose.js"></script>
+
+    <!-- Reconocimiento de gestos -->
+    <script src="js/gestures.js"></script>
 
     <!-- Lógica y renderizado de las obras -->
     <script src="js/gamelogic.js"></script>
@@ -152,4 +193,5 @@
     <script src="js/ui.js"></script>
 
 </body>
+
 </html>
