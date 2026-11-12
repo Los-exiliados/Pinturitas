@@ -172,7 +172,7 @@
   }
 
   // --- Clasificación de postura -------------------------------------------
-  // Devuelve uno de: "pinch" | "fist" | "point" | "open_palm" | null.
+  // Devuelve uno de: "pinch" | "fist" | "point" | "peace" | "open_palm" | null.
   // El orden importa: una pinza también puede parecer un puño, así que se
   // evalúa antes y se exige que ocurra lejos de la palma.
 
@@ -209,6 +209,15 @@
 
     // Índice: solo el índice extendido.
     if (extendedCount === 1 && fingers.index === "extended") return "point";
+
+    // Paz: índice y medio extendidos, el resto flexionados.
+    if (
+      extendedCount === 2 &&
+      fingers.index === "extended" &&
+      fingers.middle === "extended"
+    ) {
+      return "peace";
+    }
 
     // Palma abierta: los cuatro largos extendidos y el pulgar desplegado.
     if (extendedCount === 4 && (fingers.thumb === "extended" || thumbReach >= TUNING.THUMB_OPEN_REACH)) {
@@ -643,6 +652,7 @@
       "fist",
       "open_palm",
       "point",
+      "peace",
       "pinch",
       "close_hand",
       "open_hand",
