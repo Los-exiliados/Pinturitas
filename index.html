@@ -138,8 +138,17 @@
     <!-- PANTALLA 4: EXPERIENCIA INTERACTIVA -->
     <section id="experiencia" class="pantalla">
 
+        <!-- Cabecera negra: datos de la obra -->
         <header class="barra-experiencia">
-            <h2 id="tituloObra">La noche estrellada</h2>
+            <div class="obra-datos">
+                <h2 id="tituloObra">La noche estrellada</h2>
+                <p class="obra-firma">
+                    <span id="obraAutor">Vincent van Gogh</span>
+                    <span class="obra-sep" aria-hidden="true">·</span>
+                    <span id="obraAnio">1889</span>
+                </p>
+                <p id="estadoExperiencia" class="estado-experiencia" role="status" aria-live="polite"></p>
+            </div>
 
             <div class="controles">
                 <button id="btnPausar">Pausar</button>
@@ -148,9 +157,45 @@
             </div>
         </header>
 
+        <!-- La obra: ocupa todo el ancho y el centro de la pantalla -->
         <div id="contenedorLienzo">
             <!-- Aquí se mostrará el canvas de p5.js -->
         </div>
+
+        <!-- Pie: cámara en la esquina izquierda y poses a la derecha -->
+        <footer class="pie-experiencia">
+            <div class="caja-camara" aria-hidden="true">
+                <!-- Acá se aloja la cámara en tiempo real durante la experiencia -->
+            </div>
+
+            <div class="poses">
+                <div class="pose" title="Puño cerrado">
+                    <span class="pose-icono" aria-hidden="true">✊</span>
+                    <span class="pose-nombre">Puño</span>
+                    <span class="pose-desc">Iniciar</span>
+                </div>
+                <div class="pose" title="Palma abierta">
+                    <span class="pose-icono" aria-hidden="true">✋</span>
+                    <span class="pose-nombre">Palma</span>
+                    <span class="pose-desc">Pintar el cielo</span>
+                </div>
+                <div class="pose" title="Índice extendido">
+                    <span class="pose-icono" aria-hidden="true">☝️</span>
+                    <span class="pose-nombre">Índice</span>
+                    <span class="pose-desc">Girar los remolinos</span>
+                </div>
+                <div class="pose" title="Paz: índice y medio extendidos">
+                    <span class="pose-icono" aria-hidden="true">✌️</span>
+                    <span class="pose-nombre">Paz</span>
+                    <span class="pose-desc">Lluvia de meteoritos</span>
+                </div>
+                <div class="pose" title="Abrir y cerrar la mano">
+                    <span class="pose-icono" aria-hidden="true">🖐️✊</span>
+                    <span class="pose-nombre">Abrir / cerrar</span>
+                    <span class="pose-desc">Atraer y dispersar</span>
+                </div>
+            </div>
+        </footer>
 
     </section>
 
@@ -186,7 +231,16 @@
     <!-- Reconocimiento de gestos -->
     <script src="js/gestures.js"></script>
 
-    <!-- Lógica y renderizado de las obras -->
+    <!-- Catálogo de obras e imágenes -->
+    <script src="js/obras.js"></script>
+
+    <!-- Motor visual (lienzo de la pintura) -->
+    <script src="js/artwork.js"></script>
+
+    <!-- Música ambiental de la experiencia -->
+    <script src="js/musica.js"></script>
+
+    <!-- Lógica de la experiencia -->
     <script src="js/gamelogic.js"></script>
 
     <!-- Navegación y controles de la interfaz -->

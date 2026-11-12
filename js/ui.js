@@ -1,70 +1,19 @@
 // Interfaz de Pinceladas de Vida: bienvenida, galería y navegación.
 //
-// Solo index.html, estilos.css y este archivo son responsabilidad de la
-// interfaz. handpose.js y gamelogic.js pertenecen a otros integrantes: acá
-// únicamente se consumen las interfaces que publican (el global `Gestures`
-// para los gestos). No se los modifica ni se reimplementan sus funciones.
+// La navegación y la construcción de la galería son responsabilidad de este
+// archivo. Se consumen las interfaces que publican otros módulos: el
+// catálogo `CatalogoObras` (js/obras.js), la lógica de experiencia
+// `Gamelogic` (js/gamelogic.js) y el global `Gestures` (js/gestures.js)
+// para los gestos. No se modifica ni se reimplementa ninguno de ellos.
 
 // --- Obras --------------------------------------------------------------
 
-// Las seis piezas de la colección. No cambies títulos ni autores.
-//
-// PARA PONER LAS IMÁGENES DEFINITIVAS:
-//   1. Copiá cada archivo dentro de `assets/obras/`.
-//   2. Completá su campo `archivo`, por ejemplo:
-//          archivo: "assets/obras/noche-estrellada.jpg"
-//   3. Nada más. El <img> se crea solo y tapa el arte provisional.
-// Mientras `archivo` esté vacío no se pide ninguna imagen al servidor.
-const OBRAS = [
-    {
-        id: "noche-estrellada",
-        titulo: "La noche estrellada",
-        autor: "Vincent van Gogh",
-        anio: 1889,
-        tema: "noche",
-        archivo: "",
-    },
-    {
-        id: "caminante",
-        titulo: "El caminante sobre el mar de nubes",
-        autor: "Caspar David Friedrich",
-        anio: 1818,
-        tema: "caminante",
-        archivo: "",
-    },
-    {
-        id: "gran-ola",
-        titulo: "La gran ola de Kanagawa",
-        autor: "Katsushika Hokusai",
-        anio: 1831,
-        tema: "ola",
-        archivo: "",
-    },
-    {
-        id: "impresion-sol-naciente",
-        titulo: "Impresión, sol naciente",
-        autor: "Claude Monet",
-        anio: 1872,
-        tema: "impresion",
-        archivo: "",
-    },
-    {
-        id: "persistencia-memoria",
-        titulo: "La persistencia de la memoria",
-        autor: "Salvador Dalí",
-        anio: 1931,
-        tema: "persistencia",
-        archivo: "",
-    },
-    {
-        id: "composicion-viii",
-        titulo: "Composición VIII",
-        autor: "Wassily Kandinsky",
-        anio: 1923,
-        tema: "composicion",
-        archivo: "",
-    },
-];
+// La colección vive en js/obras.js (misma estructura de siempre, ahora con
+// rutas de imagen y, más adelante, zonas interactivas). La galería sigue
+// consumiendo el mismo contrato, sin duplicar los datos.
+const OBRAS = (typeof CatalogoObras !== "undefined" && Array.isArray(CatalogoObras))
+    ? CatalogoObras
+    : [];
 
 // --- Configuración del gesto --------------------------------------------
 
@@ -491,9 +440,15 @@ function seleccionarObra(obra, pieza) {
 
     pieza.classList.add("seleccionada");
 
+    // Si la experiencia está lista, la selección le pasa el control
+    // (gamelogic.js decide si la obra tiene imagen para abrir).
+    if (typeof Gamelogic !== "undefined" && Gamelogic.abrir(obra.id)) {
+        return;
+    }
+
     if (nodos.estado) {
         nodos.estado.textContent =
-            `«${obra.titulo}» · ${obra.autor}. El motor pictórico todavía no está conectado.`;
+            `«${obra.titulo}» · ${obra.autor}. La imagen todavía no está disponible.`;
     }
 }
 
