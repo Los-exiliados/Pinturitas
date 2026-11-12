@@ -73,7 +73,7 @@ const CatalogoObras = [
         autor: "Caspar David Friedrich",
         anio: 1818,
         tema: "caminante",
-        archivo: "",
+        archivo: "obras/el-caminante-sobre-el-mar-de-nubes.jpg",
         zonas: [],
     },
     {
@@ -82,7 +82,7 @@ const CatalogoObras = [
         autor: "Katsushika Hokusai",
         anio: 1831,
         tema: "ola",
-        archivo: "",
+        archivo: "obras/la-gran-ola-de-kanagawa.jpg",
         zonas: [],
     },
     {
@@ -91,7 +91,7 @@ const CatalogoObras = [
         autor: "Claude Monet",
         anio: 1872,
         tema: "impresion",
-        archivo: "",
+        archivo: "obras/impresion-sol-naciente.jpg",
         zonas: [],
     },
     {
@@ -100,7 +100,7 @@ const CatalogoObras = [
         autor: "Salvador Dalí",
         anio: 1931,
         tema: "persistencia",
-        archivo: "",
+        archivo: "obras/la-persistencia-de-la-memoria.jpg",
         zonas: [],
     },
     {
@@ -109,7 +109,7 @@ const CatalogoObras = [
         autor: "Wassily Kandinsky",
         anio: 1923,
         tema: "composicion",
-        archivo: "",
+        archivo: "obras/composicion-8.jpg",
         zonas: [],
     },
 ];

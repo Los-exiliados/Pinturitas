@@ -124,6 +124,7 @@ const PULGAR = {
 const regreso = {
     activo: false,
     handId: null,
+    pantalla: null,
     intervalo: null,
     desde: null,
     listo: false,
@@ -241,7 +242,8 @@ function cancelarCarga() {
 function alIniciarGesto(evento) {
     if (!evento || evento.gesture !== PUÑO.gesto) return;
 
-    if (pantallaActual === "galeria") {
+    // Toda pantalla con "volver" usa el mismo regreso: pulgar arriba.
+    if (REGRESOS[pantallaActual]) {
         iniciarRegreso(evento);
         return;
     }
@@ -263,7 +265,31 @@ function alIniciarGesto(evento) {
     }, PUÑO.cargaMs);
 }
 
-// --- Regreso desde la galería: pulgar arriba -----------------------------
+// --- Regreso: pulgar arriba ---------------------------------------------
+//
+// El pulgar sostenido vuelve a la pantalla anterior desde cualquier pantalla
+// que tenga "volver". En la experiencia se usa el mismo cierre que el botón
+// Salir, para liberar cámara y motor. La bienvenida no tiene regreso: ahí el
+// puño sigue siendo la entrada a la galería.
+
+const REGRESOS = {
+    galeria: {
+        destino: "inicio",
+        texto: "Gesto reconocido · volviendo al inicio",
+    },
+    instrucciones: {
+        destino: "galeria",
+        texto: "Gesto reconocido · volviendo a la galería",
+    },
+    experiencia: {
+        salir: true,
+        texto: "Gesto reconocido · saliendo de la obra",
+    },
+    finalizado: {
+        destino: "galeria",
+        texto: "Gesto reconocido · volviendo a la galería",
+    },
+};
 
 function iniciarRegreso(evento) {
     if (regreso.activo || regreso.listo) return;
@@ -271,6 +297,7 @@ function iniciarRegreso(evento) {
 
     regreso.activo = true;
     regreso.handId = evento.handId;
+    regreso.pantalla = pantallaActual;
     regreso.desde = null;
 
     // El overlay recién aparece cuando el pulgar se muestra: un puño suelto
@@ -313,7 +340,13 @@ function completarRegreso() {
     if (regreso.listo) return;
     regreso.listo = true;
 
-    if (nodos.cargaTexto) nodos.cargaTexto.textContent = "Gesto reconocido · volviendo al inicio";
+    const objetivo = REGRESOS[regreso.pantalla] || null;
+
+    if (nodos.cargaTexto) {
+        nodos.cargaTexto.textContent = objetivo
+            ? objetivo.texto
+            : "Gesto reconocido · volviendo";
+    }
     pintarProgreso(1);
 
     // El mismo puño no puede volver a disparar nada hasta abrir la mano.
@@ -322,7 +355,23 @@ function completarRegreso() {
 
     window.setTimeout(() => {
         detenerRegreso();
-        transicionHacia("inicio").then(() => {
+
+        if (objetivo && objetivo.salir) {
+            if (typeof Gamelogic !== "undefined" && typeof Gamelogic.salir === "function") {
+                Gamelogic.salir();
+            } else {
+                transicionHacia("galeria");
+            }
+
+            // salir() no devuelve su promesa: se libera el gesto tras la
+            // transición para no encadenar dos regresos seguidos.
+            window.setTimeout(() => {
+                regreso.listo = false;
+            }, 720);
+            return;
+        }
+
+        transicionHacia((objetivo && objetivo.destino) || "inicio").then(() => {
             regreso.listo = false;
         });
     }, 420);
@@ -336,6 +385,7 @@ function detenerRegreso() {
 
     regreso.activo = false;
     regreso.handId = null;
+    regreso.pantalla = null;
     regreso.desde = null;
     ocultarCarga();
 }
@@ -359,6 +409,276 @@ function conectarGestos() {
 
     Gestures.on("gesturestart", alIniciarGesto);
     Gestures.on("gestureend", alTerminarGesto);
+}
+
+// --- Puntero con el meñique ---------------------------------------------
+//
+// En la galería el meñique extendido (con índice, medio y anular recogidos)
+// funciona como puntero: la punta del meñique mueve un cursor por la pantalla
+// y resalta la tarjeta que queda debajo. Al recogerlo rápido sobre una tarjeta
+// —como si le picaras con la punta— se elige esa obra y se abre su
+// experiencia.
+//
+// Se apoya sólo en lo que ya publican los otros módulos: `hands` con los 21
+// keypoints (handpose.js) y el encuadre `view` con el que se dibuja la cámara.
+// Ninguno de esos archivos se modifica.
+
+const PUNTERO = {
+    // Cuánto tiene que sobresalir la punta del dedo respecto de su nudillo.
+    extension: 1.12,
+    // Ventana para que el retroceso cuente como pique y no como bajar la mano.
+    piqueMs: 380,
+    // Cuánto tiene que retroceder el meñique, en tamaños de mano.
+    retroceso: 0.14,
+    // Frames seguidos con el meñique recogido antes de confirmar el pique.
+    framesPique: 2,
+    // Espera entre piques para no abrir dos obras seguidas.
+    enfriamientoMs: 700,
+};
+
+const puntero = {
+    activo: false,
+    visible: false,
+    x: 0,
+    y: 0,
+    tarjeta: null,
+    alcanzado: 0,
+    recogido: 0,
+    ultimoMs: 0,
+    bloqueadoHasta: 0,
+    nodo: null,
+    estilo: null,
+};
+
+function crearCursorPuntero() {
+    if (puntero.nodo) return puntero.nodo;
+
+    if (!puntero.estilo) {
+        // Mismo realce que el hover del mouse, pero para el puntero de mano.
+        puntero.estilo = document.createElement("style");
+        puntero.estilo.textContent =
+            ".pieza.bajo-puntero .marco {" +
+            "transform: translateY(-7px) scale(1.012);" +
+            "border-color: rgba(242, 233, 216, 0.55);" +
+            "box-shadow: 0 34px 64px rgba(0, 0, 0, 0.6);" +
+            "}";
+        document.head.append(puntero.estilo);
+    }
+
+    const nodo = document.createElement("div");
+    nodo.setAttribute("aria-hidden", "true");
+    nodo.style.cssText = [
+        "position: fixed",
+        "left: 0",
+        "top: 0",
+        "width: 30px",
+        "height: 30px",
+        "margin: -15px 0 0 -15px",
+        "border: 1px solid rgba(198, 107, 78, 0.95)",
+        "border-radius: 50%",
+        "box-shadow: 0 0 18px rgba(198, 107, 78, 0.35)",
+        "pointer-events: none",
+        "z-index: 7",
+        "display: none",
+        "transition: transform 70ms linear",
+    ].join(";");
+    document.body.append(nodo);
+    puntero.nodo = nodo;
+
+    return nodo;
+}
+
+function medidasVideo() {
+    if (typeof video === "undefined" || !video) return null;
+
+    const elemento = video.elt || video;
+    const ancho = elemento.videoWidth || elemento.width || video.width || 0;
+    const alto = elemento.videoHeight || elemento.height || video.height || 0;
+
+    if (!ancho || !alto) return null;
+
+    return { ancho, alto };
+}
+
+// Encuadre "cover" del video sobre la ventana: el mismo que usa handpose.js
+// para dibujar la cámara y los keypoints.
+function encuadreCamara() {
+    const medidas = medidasVideo();
+    if (!medidas) return null;
+
+    const escala = Math.max(
+        window.innerWidth / medidas.ancho,
+        window.innerHeight / medidas.alto
+    );
+
+    return {
+        scale: escala,
+        offsetX: (window.innerWidth - medidas.ancho * escala) / 2,
+        offsetY: (window.innerHeight - medidas.alto * escala) / 2,
+    };
+}
+
+// Misma proyección que usa handpose.js para dibujar encima de la cámara.
+function puntoEnPantalla(keypoint) {
+    const encuadre = encuadreCamara();
+    if (!encuadre) return null;
+
+    return {
+        x: encuadre.offsetX + keypoint.x * encuadre.scale,
+        y: encuadre.offsetY + keypoint.y * encuadre.scale,
+    };
+}
+
+function tamanoMano(keypoints) {
+    return Math.max(distancia(keypoints[0], keypoints[9]), 1e-6);
+}
+
+// Alcance del dedo en tamaños de mano: sirve para medir el retroceso del pique.
+function alcanceDedo(keypoints, pip, tip) {
+    return distancia(keypoints[tip], keypoints[0]) / tamanoMano(keypoints);
+}
+
+// Scale-free: el dedo está extendido si su punta queda claramente más lejos
+// de la muñeca que su nudillo intermedio.
+function dedoExtendido(keypoints, pip, tip) {
+    return (
+        distancia(keypoints[tip], keypoints[0]) >
+        distancia(keypoints[pip], keypoints[0]) * PUNTERO.extension
+    );
+}
+
+function posturaPuntero(keypoints) {
+    if (!dedoExtendido(keypoints, 18, 20)) return false;
+    if (dedoExtendido(keypoints, 6, 8)) return false;
+    if (dedoExtendido(keypoints, 10, 12)) return false;
+    if (dedoExtendido(keypoints, 14, 16)) return false;
+    return true;
+}
+
+function tarjetaEnPunto(x, y) {
+    if (!nodos.piezas) return null;
+
+    const piezas = nodos.piezas.querySelectorAll(".pieza");
+
+    // De atrás hacia adelante: las últimas del DOM quedan arriba.
+    for (let i = piezas.length - 1; i >= 0; i -= 1) {
+        const caja = piezas[i].getBoundingClientRect();
+        if (x >= caja.left && x <= caja.right && y >= caja.top && y <= caja.bottom) {
+            return piezas[i];
+        }
+    }
+
+    return null;
+}
+
+function resaltarTarjeta(tarjeta) {
+    if (puntero.tarjeta === tarjeta) return;
+    if (puntero.tarjeta) puntero.tarjeta.classList.remove("bajo-puntero");
+    puntero.tarjeta = tarjeta;
+    if (tarjeta) tarjeta.classList.add("bajo-puntero");
+}
+
+function moverCursor(x, y) {
+    const nodo = crearCursorPuntero();
+
+    puntero.x = x;
+    puntero.y = y;
+    nodo.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+
+    if (!puntero.visible) {
+        nodo.style.display = "block";
+        puntero.visible = true;
+    }
+}
+
+function ocultarCursor() {
+    if (puntero.nodo && puntero.visible) puntero.nodo.style.display = "none";
+    puntero.visible = false;
+}
+
+function soltarPuntero() {
+    resaltarTarjeta(null);
+    ocultarCursor();
+    puntero.activo = false;
+    puntero.recogido = 0;
+    puntero.alcanzado = 0;
+}
+
+function picarPuntero(ahora) {
+    const tarjeta = puntero.tarjeta;
+
+    puntero.bloqueadoHasta = ahora + PUNTERO.enfriamientoMs;
+    soltarPuntero();
+
+    if (tarjeta) tarjeta.click();
+}
+
+function pasoPuntero() {
+    if (pantallaActual !== "galeria") {
+        soltarPuntero();
+        return;
+    }
+
+    const ahora = performance.now();
+    if (transicionando || ahora < puntero.bloqueadoHasta) return;
+
+    const mano =
+        typeof hands !== "undefined" && Array.isArray(hands) && hands.length > 0
+            ? hands[0]
+            : null;
+
+    if (!mano || !mano.keypoints || mano.keypoints.length < 21) {
+        soltarPuntero();
+        return;
+    }
+
+    const keypoints = mano.keypoints;
+    const punta = puntoEnPantalla(keypoints[20]);
+
+    if (!punta) {
+        soltarPuntero();
+        return;
+    }
+
+    if (!posturaPuntero(keypoints)) {
+        // El meñique se recogió: si venía apuntando y lo hizo rápido sobre una
+        // tarjeta, cuenta como pique.
+        if (!puntero.activo) return;
+
+        puntero.recogido += 1;
+
+        const alcance = alcanceDedo(keypoints, 18, 20);
+        const rapido = ahora - puntero.ultimoMs <= PUNTERO.piqueMs;
+        const retrocede = puntero.alcanzado - alcance >= PUNTERO.retroceso;
+
+        if (rapido && retrocede && puntero.recogido >= PUNTERO.framesPique) {
+            if (puntero.tarjeta) picarPuntero(ahora);
+            else soltarPuntero();
+            return;
+        }
+
+        // Si tardó demasiado, fue bajar la mano y no un pique.
+        if (!rapido) soltarPuntero();
+        return;
+    }
+
+    puntero.activo = true;
+    puntero.recogido = 0;
+    puntero.ultimoMs = ahora;
+    puntero.alcanzado = alcanceDedo(keypoints, 18, 20);
+
+    moverCursor(punta.x, punta.y);
+    resaltarTarjeta(tarjetaEnPunto(punta.x, punta.y));
+}
+
+function cicloPuntero() {
+    pasoPuntero();
+    window.requestAnimationFrame(cicloPuntero);
+}
+
+function iniciarPuntero() {
+    crearCursorPuntero();
+    window.requestAnimationFrame(cicloPuntero);
 }
 
 // --- Construcción de piezas ---------------------------------------------
@@ -535,6 +855,7 @@ function iniciar() {
     activarParallax();
     conectarBotones();
     conectarGestos();
+    iniciarPuntero();
 
     if (nodos.estado) nodos.estado.textContent = ESTADO_INICIAL;
 }

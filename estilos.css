@@ -85,6 +85,10 @@ body {
 }
 
 /* Experiencia: cabecera negra, obra al centro y pie con las poses. */
+#experiencia:not(.activa) {
+    display: none;
+}
+
 #experiencia {
     height: 100dvh;
     display: grid;
@@ -135,10 +139,10 @@ body {
 }
 
 .pie {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    gap: 20px;
+    gap: clamp(12px, 1.6vw, 28px);
     padding: clamp(10px, 1.5vh, 16px) 0;
     border-top: 1px solid rgba(242, 233, 216, 0.14);
     color: rgba(242, 233, 216, 0.4);
@@ -146,6 +150,10 @@ body {
     letter-spacing: 0.3em;
     position: relative;
     z-index: 6;
+}
+
+.pie > :last-child {
+    justify-self: end;
 }
 
 .pie--galeria {
@@ -163,6 +171,25 @@ body {
 
 .pie-nota {
     white-space: nowrap;
+}
+
+/* Leyenda de gestos compartida por los pies de bienvenida y galería. */
+.poses--pie {
+    flex: 0 1 auto;
+    justify-content: center;
+    gap: clamp(8px, 1.2vw, 20px);
+}
+
+.poses--pie .pose {
+    min-width: clamp(38px, 3.6vw, 62px);
+}
+
+.poses--pie .pose-icono {
+    font-size: clamp(11px, 1.1vw, 16px);
+}
+
+.poses--pie .pose-desc {
+    letter-spacing: 0.08em;
 }
 
 /* =========================================================
