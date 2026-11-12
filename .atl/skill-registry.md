@@ -6,8 +6,10 @@ Last updated: 2026-11-11
 
 ## Sources scanned
 
-- C:\Users\Usuario\.config\opencode\skills
-- C:\Users\Usuario\.copilot\skills
+- C:\Users\USER\.config\opencode\skills
+- C:\Users\USER\.claude\skills
+- C:\Users\USER\.cursor\skills
+- C:\Users\USER\.copilot\skills
 
 ## Contract
 
@@ -19,13 +21,13 @@ Last updated: 2026-11-11
 
 | Skill | Trigger / description | Scope | Path |
 | --- | --- | --- | --- |
-| `chained-pr` | Trigger: PRs over 400 lines, stacked PRs, review slices. Split oversized changes into chained PRs that protect review focus. | user | `C:\Users\Usuario\.config\opencode\skills\chained-pr\SKILL.md` |
-| `cognitive-doc-design` | Design docs that reduce cognitive load. Trigger: writing guides, READMEs, RFCs, onboarding, architecture, or review-facing docs. | user | `C:\Users\Usuario\.config\opencode\skills\cognitive-doc-design\SKILL.md` |
-| `go-testing` | Trigger: Go tests, go test coverage, Bubbletea teatest, golden files. Apply focused Go testing patterns. | user | `C:\Users\Usuario\.config\opencode\skills\go-testing\SKILL.md` |
-| `judgment-day` | Trigger: judgment day, dual review, adversarial review, juzgar. Run explicit blind dual review with at most two scoped fix/re-judgment rounds. | user | `C:\Users\Usuario\.config\opencode\skills\judgment-day\SKILL.md` |
-| `skill-creator` | Trigger: new skills, agent instructions, documenting AI usage patterns. Create LLM-first skills with valid frontmatter. | user | `C:\Users\Usuario\.config\opencode\skills\skill-creator\SKILL.md` |
-| `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `C:\Users\Usuario\.config\opencode\skills\skill-improver\SKILL.md` |
-| `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `C:\Users\Usuario\.config\opencode\skills\work-unit-commits\SKILL.md` |
+| `chained-pr` | Trigger: PRs over 400 lines, stacked PRs, review slices. Split oversized changes into chained PRs that protect review focus. | user | `C:\Users\USER\.config\opencode\skills\chained-pr\SKILL.md` |
+| `cognitive-doc-design` | Design docs that reduce cognitive load. Trigger: writing guides, READMEs, RFCs, onboarding, architecture, or review-facing docs. | user | `C:\Users\USER\.config\opencode\skills\cognitive-doc-design\SKILL.md` |
+| `go-testing` | Trigger: Go tests, go test coverage, Bubbletea teatest, golden files. Apply focused Go testing patterns. | user | `C:\Users\USER\.config\opencode\skills\go-testing\SKILL.md` |
+| `judgment-day` | Trigger: judgment day, dual review, adversarial review, juzgar. Run explicit blind dual review with at most two scoped fix/re-judgment rounds. | user | `C:\Users\USER\.config\opencode\skills\judgment-day\SKILL.md` |
+| `skill-creator` | Trigger: new skills, agent instructions, documenting AI usage patterns. Create LLM-first skills with valid frontmatter. | user | `C:\Users\USER\.config\opencode\skills\skill-creator\SKILL.md` |
+| `skill-improver` | Trigger: improve skills, audit skills, refactor skills, skill quality. Audit and upgrade existing LLM-first skills. | user | `C:\Users\USER\.config\opencode\skills\skill-improver\SKILL.md` |
+| `work-unit-commits` | Plan commits as reviewable work units. Trigger: implementation, commit splitting, chained PRs, or keeping tests and docs with code. | user | `C:\Users\USER\.config\opencode\skills\work-unit-commits\SKILL.md` |
 
 ## Loading protocol
 
