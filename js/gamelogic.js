@@ -5,8 +5,14 @@
 // pintura monta el lienzo, aloja la cámara en el recuadro del pie y alimenta
 // al motor con el estado de las manos en cada frame.
 //
-// Interacciones (se suman por etapas):
+// Interacciones:
 //   - point (índice extendido): activa el molino de los remolinos.
+//   - peace (paz): dispara la lluvia de meteoritos.
+//   - pinza: pinzaCerrada enciende el resplandor de los cuerpos celestes;
+//     pinzaAbierta lo apaga. Sin manos no se informa ningún cambio.
+//   - viento: la palma abierta en movimiento horizontal alimenta
+//     vientoVelocidad; solo con la postura open_palm (la pinza, la paz y el
+//     índice no la activan).
 //
 // No se crea ningún sistema de detección nuevo: se consumen los globales
 // `hands` y `Gestures`. La navegación sigue siendo de ui.js.
@@ -22,6 +28,11 @@ const Gamelogic = (function () {
     // Distancia máxima (en unidades de frame) para emparejar una mano con
     // su snapshot de gesto: el mismo criterio que usa ui.js.
     const UMBRAL_EMPAREJAMIENTO = 0.12;
+
+    // Posición X previa del centro de cada palma abierta (identidad por
+    // referencia de la mano, la que garantiza handpose.js): con eso se mide
+    // el desplazamiento horizontal entre frames para el viento.
+    const palmasAnteriores = new Map();
 
     let obraActiva = null;
     let bucleActivo = false;
@@ -71,6 +82,7 @@ const Gamelogic = (function () {
 
     function salir() {
         obraActiva = null;
+        palmasAnteriores.clear();
         if (typeof Musica !== "undefined") Musica.detener();
         detenerBucle();
         restaurarCamara();
@@ -104,49 +116,29 @@ const Gamelogic = (function () {
 
     // --- Lectura de manos y gestos ----------------------------------------
 
-    // Devuelve el estado por frame: cuántas manos hay, sus posturas, la
-    // posición de cada palma sobre la pintura (normalizada) y si alguna
-    // mantiene el índice extendido.
+    // Devuelve el estado por frame: cuántas manos hay, si alguna mantiene el
+    // índice extendido (molino), si alguna hace la paz (meteoritos), si
+    // alguna tiene la pinza cerrada o abierta (resplandor de los cuerpos) y
+    // la velocidad horizontal de las palmas abiertas (viento).
     function estadoManos() {
-        const estado = { molino: false, paz: false, manos: 0, posturas: [], palmas: [] };
+        const estado = {
+            molino: false,
+            paz: false,
+            manos: 0,
+            pinzaCerrada: false,
+            pinzaAbierta: false,
+            vientoManos: 0,
+            vientoVelocidad: 0,
+        };
 
         if (typeof hands === "undefined" || !Array.isArray(hands)) return estado;
         if (typeof video === "undefined" || !video || !video.width) return estado;
         if (typeof Gestures === "undefined" || typeof Gestures.snapshots !== "function") return estado;
-        if (typeof Artwork === "undefined" || typeof Artwork.dimensiones !== "function") return estado;
 
-        const dimensiones = Artwork.dimensiones();
-        if (!dimensiones) return estado; // la imagen todavía no cargó
-
-        const anchoVideo = video.width;
-        const altoVideo = video.height;
-        const unidad = Math.max(anchoVideo, altoVideo);
-        const anchoPantalla = window.innerWidth;
-        const altoPantalla = window.innerHeight;
-
-        // Ajuste "cover" de la cámara (el mismo cálculo que handpose.js).
-        const escalaVideo = Math.max(anchoPantalla / anchoVideo, altoPantalla / altoVideo);
-        const offsetVideoX = (anchoPantalla - anchoVideo * escalaVideo) / 2;
-        const offsetVideoY = (altoPantalla - altoVideo * escalaVideo) / 2;
-
-        // Ajuste "contain" de la pintura (el mismo cálculo que el motor).
-        const fit = Math.min(anchoPantalla / dimensiones.ancho, altoPantalla / dimensiones.alto);
-        const anchoDibujo = dimensiones.ancho * fit;
-        const altoDibujo = dimensiones.alto * fit;
-        const offsetPinturaX = (anchoPantalla - anchoDibujo) / 2;
-        const offsetPinturaY = (altoPantalla - altoDibujo) / 2;
-
-        const convertir = function (videoX, videoY) {
-            const pantallaX = offsetVideoX + videoX * escalaVideo;
-            const pantallaY = offsetVideoY + videoY * escalaVideo;
-            return {
-                x: (pantallaX - offsetPinturaX) / anchoDibujo,
-                y: (pantallaY - offsetPinturaY) / altoDibujo,
-            };
-        };
-
+        const unidad = Math.max(video.width, video.height);
         const snapshots = Gestures.snapshots();
         const usados = new Array(snapshots.length).fill(false);
+        const palmasAbiertas = new Set();
 
         for (const mano of hands) {
             if (!mano || !Array.isArray(mano.keypoints) || mano.keypoints.length < 21) continue;
@@ -159,33 +151,51 @@ const Gamelogic = (function () {
             // (o leyó "point" con la mano en otra forma):
             // - índice + medio extendidos -> peace
             // - índice único extendido -> point
-            // - tres o más dedos extendidos -> open_palm
             if (posture === null || posture === "point") {
                 if (pazExtendida(mano)) {
                     posture = "peace";
                 } else if (posture === null && indiceExtendido(mano)) {
                     posture = "point";
-                } else if (palmaAbierta(mano)) {
-                    posture = "open_palm";
                 }
             }
 
-            // Centro de la palma en coordenadas normalizadas de la pintura.
-            const ids = [0, 5, 9, 13, 17];
-            let sumaX = 0;
-            let sumaY = 0;
-            for (const indice of ids) {
-                sumaX += mano.keypoints[indice].x;
-                sumaY += mano.keypoints[indice].y;
-            }
-            const palma = convertir(sumaX / ids.length, sumaY / ids.length);
-
             estado.manos += 1;
-            estado.posturas.push(posture);
-            estado.palmas.push({ x: palma.x, y: palma.y, posture });
 
             if (posture === "point") estado.molino = true;
             if (posture === "peace") estado.paz = true;
+
+            if (snapshot && snapshot.pinzaCerrada) estado.pinzaCerrada = true;
+            if (snapshot && snapshot.pinzaAbierta) estado.pinzaAbierta = true;
+
+            // Viento: solo con la palma abierta (la pinza, la paz y el índice
+            // nunca clasifican como open_palm). Se mide el desplazamiento
+            // horizontal del centro de la palma entre frames, en fracciones
+            // del lado mayor del video.
+            if (posture === "open_palm") {
+                palmasAbiertas.add(mano);
+
+                const ids = [0, 5, 9, 13, 17];
+                let suma = 0;
+                for (const indice of ids) suma += mano.keypoints[indice].x;
+                const xPalma = suma / ids.length;
+
+                const previa = palmasAnteriores.get(mano);
+                if (previa !== undefined) {
+                    estado.vientoVelocidad += (xPalma - previa) / unidad;
+                    estado.vientoManos += 1;
+                }
+                palmasAnteriores.set(mano, xPalma);
+            }
+        }
+
+        // Las manos que dejaron de estar en palma abierta se olvidan: al
+        // reabrir no hay salto de posición.
+        for (const mano of Array.from(palmasAnteriores.keys())) {
+            if (!palmasAbiertas.has(mano)) palmasAnteriores.delete(mano);
+        }
+
+        if (estado.vientoManos > 0) {
+            estado.vientoVelocidad /= estado.vientoManos;
         }
 
         return estado;
@@ -225,36 +235,6 @@ const Gamelogic = (function () {
         }
 
         return extendidos === 1 && esIndice;
-    }
-
-    // Respaldo de palma abierta: gestures.js la exige con los cuatro dedos
-    // muy estirados; con el modelo lite eso falla a menudo. Solo actúa
-    // cuando no hay una clasificación clara (nunca pisa un puño o una pinza).
-    function palmaAbierta(mano) {
-        const keypoints = mano.keypoints;
-        const dedos = [
-            { mcp: 5, pip: 6, tip: 8 },
-            { mcp: 9, pip: 10, tip: 12 },
-            { mcp: 13, pip: 14, tip: 16 },
-            { mcp: 17, pip: 18, tip: 20 },
-        ];
-
-        let extendidos = 0;
-
-        for (const dedo of dedos) {
-            const base = Math.hypot(
-                keypoints[dedo.pip].x - keypoints[dedo.mcp].x,
-                keypoints[dedo.pip].y - keypoints[dedo.mcp].y
-            );
-            if (base < 1e-6) continue;
-            const largo = Math.hypot(
-                keypoints[dedo.tip].x - keypoints[dedo.mcp].x,
-                keypoints[dedo.tip].y - keypoints[dedo.mcp].y
-            );
-            if (largo / base >= 1.55) extendidos += 1;
-        }
-
-        return extendidos >= 3;
     }
 
     // Respaldo de la paz: índice y medio extendidos, los otros flexionados.
@@ -333,12 +313,10 @@ const Gamelogic = (function () {
                     : "Sin manos en cámara";
         } else if (estado.molino) {
             texto = "Índice · molino girando";
-        } else if (estado.posturas.indexOf("open_palm") !== -1) {
-            texto = "Palma · explosión";
-        } else if (estado.posturas.indexOf("fist") !== -1) {
-            texto = "Puño · cargando partículas";
         } else if (estado.paz) {
             texto = "Paz · lluvia de meteoritos";
+        } else if (estado.pinzaCerrada) {
+            texto = "Pinza cerrada · encendiendo los cuerpos celestes";
         } else if (
             typeof Artwork !== "undefined" &&
             typeof Artwork.estadoMolino === "function"
@@ -349,8 +327,7 @@ const Gamelogic = (function () {
             } else if (molino.desenrollando) {
                 texto = "Molino · volviendo a la forma original";
             } else {
-                const postura = estado.posturas[0] || "sin gesto";
-                texto = `${postura} · índice extendido = girar`;
+                texto = "Índice extendido = girar el remolino";
             }
         } else {
             texto = "Índice extendido = girar el remolino";

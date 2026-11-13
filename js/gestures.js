@@ -14,6 +14,10 @@
 //
 // Este archivo no dibuja, no toca el DOM y no depende de p5: solo clasifica y
 // emite eventos para que gamelogic.js los consuma más adelante.
+//
+// Además de los gestos de postura, calcula por mano el estado de la pinza
+// (punta del pulgar ↔ punta del índice). Ese estado NO emite eventos: se lee
+// desde los snapshots (campo `pinza`) o con Gestures.pinzas().
 
 (function (global) {
   "use strict";
@@ -64,35 +68,9 @@
     // El pulgar se considera abierto si su punta se aleja de la palma.
     THUMB_OPEN_REACH: 0.95,
 
-    // Pinza, medida como distancia entre puntas / tamaño de mano.
-    PINCH_ENTER: 0.3,
-    PINCH_EXIT: 0.45,
-    // La pinza debe ocurrir lejos de la palma, si no es un puño.
-    PINCH_REACH: 0.55,
-    PINCH_INDEX_REACH: 1.15,
-
     // Tiempos de estabilidad para las posturas.
     STABLE_MS: 120,
     RELEASE_MS: 200,
-
-    // Transición abrir <-> cerrar.
-    TRANSITION_MIN_GAP_MS: 300,
-    TRANSITION_HOLD_MS: 350,
-
-    // Deslizamiento horizontal.
-    SWIPE_WINDOW_MS: 650,
-    SWIPE_MIN_TIME_MS: 120,
-    SWIPE_STEP_MS: 30,
-    SWIPE_MIN_FRAME: 0.18, // fracción del lado mayor del frame (sin frame disponible)
-    SWIPE_MIN_HANDS: 1.6, // alternativa en tamaños de mano
-    SWIPE_AXIS_RATIO: 0.45, // |dy| máximo respecto de |dx|
-    SWIPE_FORWARD_RATIO: 0.7, // pasos en el sentido final / pasos totales
-    SWIPE_COOLDOWN_MS: 900,
-    SWIPE_HOLD_MS: 350,
-    // Tras un deslizamiento hay que volver al reposo para habilitar otro:
-    // un movimiento continuo no debe dispararse una y otra vez.
-    SWIPE_REARM_WINDOW_MS: 250,
-    SWIPE_REARM_MAX: 0.04, // desplazamiento máximo en reposo, fracción del frame
 
     // Ciclo de vida del seguimiento.
     MISS_END_MS: 250, // sin ver la mano: se cierra el gesto activo
@@ -104,10 +82,6 @@
 
   function dist(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
-  }
-
-  function midpoint(a, b) {
-    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }
 
   function centroid(points) {
@@ -172,9 +146,7 @@
   }
 
   // --- Clasificación de postura -------------------------------------------
-  // Devuelve uno de: "pinch" | "fist" | "point" | "peace" | "open_palm" | null.
-  // El orden importa: una pinza también puede parecer un puño, así que se
-  // evalúa antes y se exige que ocurra lejos de la palma.
+  // Devuelve uno de: "fist" | "point" | "peace" | "open_palm" | null.
 
   function classifyPosture(keypoints, state, size) {
     const fingers = state.fingers;
@@ -186,23 +158,8 @@
 
     const palm = palmCenter(keypoints);
     const thumbTip = keypoints[LM.THUMB_TIP];
-    const indexTip = keypoints[LM.INDEX_TIP];
 
-    const pinchRatio = dist(thumbTip, indexTip) / size;
-    const pinchReach = dist(midpoint(thumbTip, indexTip), palm) / size;
-    const indexMcpDistance = dist(keypoints[LM.INDEX_MCP], keypoints[LM.WRIST]);
-    const indexReach = dist(indexTip, keypoints[LM.WRIST]) / Math.max(indexMcpDistance, 1e-6);
     const thumbReach = dist(thumbTip, palm) / size;
-
-    // Pinza: puntas juntas, lejos de la palma y con el índice fuera del puño.
-    const pinchLimit = state.posture === "pinch" ? TUNING.PINCH_EXIT : TUNING.PINCH_ENTER;
-    if (
-      pinchRatio <= pinchLimit &&
-      pinchReach >= TUNING.PINCH_REACH &&
-      indexReach >= TUNING.PINCH_INDEX_REACH
-    ) {
-      return "pinch";
-    }
 
     // Puño: los cuatro dedos largos flexionados (el pulgar no se exige).
     if (extendedCount === 0) return "fist";
@@ -227,6 +184,42 @@
     return null;
   }
 
+  // --- Pinza (pulgar + índice) ---------------------------------------------
+  // Estado continuo por mano: la distancia entre la punta del pulgar y la
+  // punta del índice, normalizada por el tamaño de la mano (funciona igual
+  // cerca o lejos de la cámara). Dos umbrales con histéresis y un debounce
+  // corto evitan que el estado parpadee cuando los dedos rondan el límite.
+  // No emite gesturestart/gestureend: se consume por frame desde los
+  // snapshots (campo `pinza`) o con Gestures.pinzas().
+
+  const PINZA = Object.freeze({
+    CERRAR: 0.3, // por debajo de esto: pinza cerrada
+    ABRIR: 0.45, // por encima de esto: pinza abierta
+    ESTABLE_MS: 100, // la nueva lectura debe sostenerse este tiempo
+  });
+
+  function actualizarPinza(state, keypoints, size, now) {
+    const distancia = dist(keypoints[LM.THUMB_TIP], keypoints[LM.INDEX_TIP]) / size;
+
+    // Histéresis: entre los dos umbrales se conserva el estado actual.
+    let candidata = state.pinza;
+    if (distancia <= PINZA.CERRAR) candidata = "cerrada";
+    else if (distancia >= PINZA.ABRIR) candidata = "abierta";
+    if (candidata === null) candidata = "abierta";
+
+    if (candidata !== state.pinzaCandidata) {
+      state.pinzaCandidata = candidata;
+      state.pinzaCandidataDesde = now;
+    }
+
+    if (now - state.pinzaCandidataDesde >= PINZA.ESTABLE_MS && state.pinza !== state.pinzaCandidata) {
+      state.pinza = state.pinzaCandidata;
+      state.pinzaDesde = now;
+    }
+
+    state.pinzaDistancia = distancia;
+  }
+
   // --- Estado por mano ----------------------------------------------------
 
   let nextId = 1;
@@ -243,12 +236,12 @@
       candidate: null,
       candidateAt: 0,
       posture: null,
-      openness: null,
-      lastTransitionAt: -Infinity,
-      lastSwipeAt: -Infinity,
-      swipeArmed: true,
-      track: [],
       active: null,
+      pinza: null,
+      pinzaCandidata: null,
+      pinzaCandidataDesde: 0,
+      pinzaDesde: 0,
+      pinzaDistancia: null,
     };
   }
 
@@ -327,84 +320,9 @@
     emit("gestureend", payload);
   }
 
-  function startTransient(state, gesture, direction, now, kind, holdMs) {
-    endActive(state, now);
-    startActive(state, gesture, direction, now, kind, holdMs);
-  }
-
-  // --- Deslizamiento horizontal -------------------------------------------
-  // Se normaliza por el lado mayor del frame (o por el tamaño de la mano si
-  // el video todavía no está disponible). La ventana corta evita que un
-  // cambio de profundidad se lea como desplazamiento.
-
-  function detectSwipe(history) {
-    if (history.length < 4) return null;
-
-    const first = history[0];
-    const last = history[history.length - 1];
-    const dt = last.t - first.t;
-    if (dt < TUNING.SWIPE_MIN_TIME_MS) return null;
-
-    const dx = last.x - first.x;
-    const dy = last.y - first.y;
-    if (Math.abs(dx) < last.min) return null;
-    if (Math.abs(dy) > Math.abs(dx) * TUNING.SWIPE_AXIS_RATIO) return null;
-
-    // La trayectoria tiene que ir mayormente en un solo sentido.
-    const sign = dx > 0 ? 1 : -1;
-    let forward = 0;
-    let total = 0;
-    for (let i = 1; i < history.length; i += 1) {
-      const step = history[i].x - history[i - 1].x;
-      if (Math.abs(step) < 1e-9) continue;
-      total += 1;
-      if (step * sign > 0) forward += 1;
-    }
-    if (total === 0 || forward / total < TUNING.SWIPE_FORWARD_RATIO) return null;
-
-    return {
-      direction: sign > 0 ? "right" : "left",
-      distance: Math.abs(dx),
-      duration: dt,
-    };
-  }
-
-  function recordTrack(state, hand, now, unit, minDistance) {
-    const last = state.track[state.track.length - 1];
-    if (last && now - last.t < TUNING.SWIPE_STEP_MS) return;
-
-    state.track.push({
-      x: hand.anchorX / unit,
-      y: hand.anchorY / unit,
-      t: now,
-      min: minDistance,
-    });
-
-    while (state.track.length > 0 && now - state.track[0].t > TUNING.SWIPE_WINDOW_MS) {
-      state.track.shift();
-    }
-  }
-
-  // ¿La mano está quieta el tiempo suficiente como para habilitar otro
-  // deslizamiento? Evita que un movimiento continuo dispare en bucle.
-  function isStill(history, now) {
-    let start = history.length;
-    for (let i = history.length - 1; i >= 0; i -= 1) {
-      if (now - history[i].t <= TUNING.SWIPE_REARM_WINDOW_MS) start = i;
-      else break;
-    }
-
-    const recent = history.slice(start);
-    if (recent.length < 3) return false;
-
-    const first = recent[0];
-    const last = recent[recent.length - 1];
-    return Math.hypot(last.x - first.x, last.y - first.y) <= TUNING.SWIPE_REARM_MAX;
-  }
-
   // --- Paso de reconocimiento por mano ------------------------------------
 
-  function step(state, hand, now, unit, size) {
+  function step(state, hand, now, size) {
     const keypoints = hand.keypoints;
 
     updateFingers(keypoints, state.fingers);
@@ -424,55 +342,7 @@
       state.posture = null;
     }
 
-    // Transición abrir <-> cerrar: se dispara por cambio de estado, no por
-    // posición. Mantener la postura no vuelve a disparar nada.
-    if (state.posture === "open_palm" || state.posture === "fist") {
-      const side = state.posture === "open_palm" ? "open" : "closed";
-      if (
-        state.openness !== null &&
-        state.openness !== side &&
-        now - state.lastTransitionAt >= TUNING.TRANSITION_MIN_GAP_MS
-      ) {
-        const gesture = side === "closed" ? "close_hand" : "open_hand";
-        startTransient(state, gesture, null, now, "transition", TUNING.TRANSITION_HOLD_MS);
-        state.lastTransitionAt = now;
-      }
-      state.openness = side;
-    }
-
-    // Deslizamiento: solo con la palma abierta y en movimiento.
-    if (state.posture === "open_palm") {
-      const unitDistance = unit > 0 ? unit : size;
-      const minDistance = unit > 0 ? TUNING.SWIPE_MIN_FRAME : TUNING.SWIPE_MIN_HANDS;
-      recordTrack(state, hand, now, unitDistance, minDistance);
-
-      if (!state.swipeArmed && isStill(state.track, now)) {
-        state.swipeArmed = true;
-      }
-
-      if (state.swipeArmed && now - state.lastSwipeAt >= TUNING.SWIPE_COOLDOWN_MS) {
-        const swipe = detectSwipe(state.track);
-        if (swipe) {
-          state.lastSwipeAt = now;
-          state.swipeArmed = false;
-          state.track = [];
-          startTransient(
-            state,
-            swipe.direction === "right" ? "swipe_right" : "swipe_left",
-            swipe.direction,
-            now,
-            "swipe",
-            TUNING.SWIPE_HOLD_MS
-          );
-        }
-      }
-    } else if (state.track.length > 0) {
-      state.track = [];
-      // Si la postura desapareció hace rato, se vuelve a habilitar el gesto.
-      if (!state.swipeArmed && now - state.lastSwipeAt >= TUNING.SWIPE_COOLDOWN_MS) {
-        state.swipeArmed = true;
-      }
-    }
+    actualizarPinza(state, keypoints, size, now);
 
     // Ciclo de vida del gesto activo.
     if (state.active) {
@@ -500,6 +370,14 @@
       since: active ? active.startedAt : null,
       duration: active ? Math.max(0, now - active.startedAt) : 0,
       position: { x: state.position.x, y: state.position.y },
+      pinza: state.pinza,
+      pinzaCerrada: state.pinza === "cerrada",
+      pinzaAbierta: state.pinza === "abierta",
+      pinzaEstable:
+        state.pinza !== null &&
+        now - state.pinzaDesde >= PINZA.ESTABLE_MS &&
+        state.pinzaCandidata === state.pinza,
+      pinzaDistancia: state.pinzaDistancia,
     };
   }
 
@@ -568,7 +446,7 @@
         state.position.y = hand.anchorY / unit;
       }
 
-      step(state, hand, time, unit, size);
+      step(state, hand, time, size);
       snapshots.push(snapshot(state, time));
     }
 
@@ -602,7 +480,6 @@
   function reset() {
     for (const state of states.values()) {
       state.active = null;
-      state.track = [];
     }
     states.clear();
     lastSnapshots = [];
@@ -648,19 +525,23 @@
     snapshots: function snapshots() {
       return lastSnapshots;
     },
-    GESTURES: Object.freeze([
-      "fist",
-      "open_palm",
-      "point",
-      "peace",
-      "pinch",
-      "close_hand",
-      "open_hand",
-      "swipe_left",
-      "swipe_right",
-    ]),
+    pinzas: function pinzas() {
+      return lastSnapshots.map(function (s) {
+        return {
+          handId: s.handId,
+          handIndex: s.handIndex,
+          estado: s.pinza,
+          pinzaCerrada: s.pinzaCerrada,
+          pinzaAbierta: s.pinzaAbierta,
+          estable: s.pinzaEstable,
+          distancia: s.pinzaDistancia,
+        };
+      });
+    },
+    GESTURES: Object.freeze(["fist", "open_palm", "point", "peace"]),
     LM,
     tuning: TUNING,
+    PINZA,
   };
 
   global.Gestures = api;
