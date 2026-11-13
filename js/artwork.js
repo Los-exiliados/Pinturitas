@@ -9,11 +9,13 @@
 //     de viento, con arranque y freno suaves.
 //   - Paz: lluvia de meteoritos que rebotan dentro del lienzo.
 //   - Pinza: mientras está cerrada enciende el resplandor de los cuerpos
-//     celestes de la obra (todos a la vez); al soltar, el brillo adicional
-//     desaparece con un fundido suave y vuelve la pintura original.
+//     celestes de la obra (todos a la vez) y oscurece el resto de la pintura
+//     para generar contraste; al soltar, el brillo adicional desaparece con
+//     un fundido suave y la luz de fondo vuelve a la normalidad.
 //   - Viento: la palma abierta en movimiento horizontal desplaza las
-//     pinceladas del cielo en esa dirección; al detenerse (o perderse la
-//     mano), las pinceladas vuelven suavemente a su lugar.
+//     pinceladas del cielo en esa dirección con una ondulación de brisa que
+//     deja rastro; al detenerse (o perderse la mano), las pinceladas
+//     vuelven suavemente a su lugar.
 //
 // Modo DEBUG (window.DEBUG = true): dibuja el círculo de cada zona de
 // remolino y permite hacer clic sobre la pintura para leer coordenadas
@@ -42,6 +44,7 @@ const Artwork = (function () {
     const VIENTO_MAX = 80; // tope de desplazamiento en px de imagen
     const VIENTO_SUAVIDAD = 4; // acercamiento al objetivo (1/s)
     const VIENTO_HORIZONTE = 0.66; // debajo de esta fracción del alto no hay viento
+    const OSCURECER_MAX = 0.55; // contraste de la pinza: cuánto se oscurece el fondo
 
     // Paletas de los meteoritos: alternan entre el amarillo cálido y el
     // azul de la noche de la obra.
@@ -84,6 +87,7 @@ const Artwork = (function () {
     let velocidad = 0;
     let ultimoTiempo = 0;
     let vientoActual = 0; // desplazamiento horizontal suavizado (px de imagen)
+    let faseViento = 0; // onda de la brisa que viaja con el viento
 
     // Resplandor de los cuerpos celestes (la pinza cerrada lo enciende).
     let cuerposActivos = [];
@@ -165,10 +169,23 @@ const Artwork = (function () {
                         -VIENTO_MAX,
                         Math.min(VIENTO_MAX, velocidadViento * VIENTO_ESCALA)
                     );
-                    vientoActual += (objetivoViento - vientoActual) * Math.min(1, dt * VIENTO_SUAVIDAD);
+                    // Sube rápido con la palma; al soltarla se desvanece
+                    // lento, para que la brisa dure varios segundos.
+                    const vientoSube =
+                        Math.abs(objetivoViento) > Math.abs(vientoActual);
+                    const suavidadViento = vientoSube ? VIENTO_SUAVIDAD : 0.5;
+                    vientoActual += (objetivoViento - vientoActual) * Math.min(1, dt * suavidadViento);
                     if (Math.abs(objetivoViento - vientoActual) < 0.1) {
                         vientoActual = objetivoViento;
                     }
+
+                    // La onda de la brisa viaja en el sentido del viento:
+                    // velocidad base + un extra según la fuerza, para que el
+                    // rastro se mueva siempre, aunque la brisa sea suave.
+                    faseViento +=
+                        (5.5 + Math.abs(vientoActual) * 0.1) *
+                        dt *
+                        (vientoActual >= 0 ? 1 : -1);
 
                     if (!imagen || !dimensiones) return;
                     dibujarMalla(p);
@@ -395,9 +412,22 @@ const Artwork = (function () {
         }
 
         // Viento: desplazamiento horizontal del cielo, suavizado por la
-        // máscara (cero sobre los cuerpos celestes y el paisaje).
+        // máscara (cero sobre los cuerpos celestes y el paisaje), más una
+        // ondulación que viaja con el viento y deja rastro de brisa.
         if (vientoActual !== 0) {
-            x += vientoActual * mascaraViento(px, py);
+            const peso = mascaraViento(px, py);
+            x += vientoActual * peso;
+
+            if (Math.abs(vientoActual) > 0.1) {
+                // Ondulación fuerte (factor 3) con el movimiento notándose
+                // bastante en AMBOS lados de la obra.
+                const lateral = 0.6 + 1.1 * Math.abs((px / dimensiones.ancho) - 0.5) * 2;
+                const onda =
+                    Math.sin(px * 0.035 - faseViento) +
+                    0.5 * Math.sin(px * 0.012 + faseViento * 0.6);
+                const desplazamiento = onda * Math.abs(vientoActual) * 3 * peso * lateral;
+                y += Math.max(-190, Math.min(190, desplazamiento));
+            }
         }
 
         return { x, y };
@@ -415,7 +445,9 @@ const Artwork = (function () {
             const radio = cuerpo.radio * 1.25;
             const d2 = dx * dx + dy * dy;
             if (d2 < radio * radio * 6.25) {
-                peso *= 1 - Math.exp(-(d2 / (radio * radio)) * 3);
+                // Los cuerpos amortiguan la brisa, pero sin apagarla del
+                // todo: la luna y las estrellas también respiran con ella.
+                peso *= Math.max(0.25, 1 - Math.exp(-(d2 / (radio * radio)) * 3));
             }
         }
 
@@ -435,16 +467,23 @@ const Artwork = (function () {
         p.noStroke();
         p.textureMode(p.NORMAL);
 
-        // Pasada base: la pintura original.
+        // Pasada base: la pintura original, oscurecida según el contraste
+        // del gesto de la pinza.
+        const oscurecer = iluminacion * OSCURECER_MAX;
+        const brillo = 255 * (1 - oscurecer);
+        p.tint(brillo, brillo, brillo);
         dibujarPasada(p, vista, imagen, 0);
+        p.noTint();
 
         // Pasada de resplandor: la misma malla (misma deformación) con la
-        // versión iluminada; el alpha del tint funde ambas y mantiene la
-        // alineación exacta con la pintura, incluidos los remolinos. Un
-        // offset mínimo de z evita el z-fighting entre las dos pasadas.
+        // capa de solo luz, sumada aditivamente; el alpha del tint funde el
+        // brillo y mantiene la alineación exacta con la pintura. Un offset
+        // mínimo de z evita el z-fighting entre las dos pasadas.
         if (imagenResplandor && iluminacion > 0.002) {
+            p.blendMode(p.ADD);
             p.tint(255, 255 * iluminacion);
             dibujarPasada(p, vista, imagenResplandor, 0.5);
+            p.blendMode(p.BLEND);
             p.noTint();
         }
     }
@@ -474,18 +513,17 @@ const Artwork = (function () {
     }
 
     // --- Resplandor de los cuerpos celestes --------------------------------
-    // Hornea en el propio espacio de la imagen una versión iluminada: la
-    // misma pintura con un resplandor cálido y aditivo (modo "screen")
-    // alrededor de cada cuerpo. Al usarla como textura de la misma malla, el
-    // brillo queda siempre alineado con la pintura (incluida la deformación
-    // de los remolinos) y no parece una capa superpuesta. No hay rellenos
-    // negros ni máscaras opacas: solo luz que se suma a la obra.
+    // Hornea en el propio espacio de la imagen una capa de SOLO luz: fondo
+    // transparente con un resplandor cálido alrededor de cada cuerpo. La
+    // pintura base se dibuja oscurecida durante el gesto y esta capa se suma
+    // aditivamente con la misma malla, así el brillo queda siempre alineado
+    // (incluida la deformación de los remolinos) y el contraste se genera
+    // sin rellenos negros ni máscaras opacas.
     function crearVersionResplandor(cuerpos) {
         if (!imagen || !sketchRef || cuerpos.length === 0) return null;
 
         const g = sketchRef.createGraphics(imagen.width, imagen.height);
         g.pixelDensity(1);
-        g.image(imagen, 0, 0);
 
         const ctx = g.drawingContext;
         ctx.save();
@@ -565,6 +603,7 @@ const Artwork = (function () {
         fase = 0;
         velocidad = 0;
         vientoActual = 0;
+        faseViento = 0;
 
         // Resplandor: cada obra arranca con la pintura original.
         iluminacion = 0;
@@ -650,6 +689,7 @@ const Artwork = (function () {
         fase = 0;
         velocidad = 0;
         vientoActual = 0;
+        faseViento = 0;
         meteoros.length = 0;
         lluviaAcumulador = 0;
         ultimaPaz = 0;
