@@ -52,6 +52,11 @@ const nodos = {
     pista: document.querySelector(".pista"),
     particulas: document.getElementById("particulas"),
     escena: document.querySelector(".escena--inicio"),
+    avisoSalida: document.getElementById("avisoSalida"),
+    avisoTitulo: document.getElementById("avisoSalidaTitulo"),
+    avisoDestino: document.getElementById("avisoSalidaDestino"),
+    avisoProgreso: document.querySelector("#avisoSalida .aviso-salida__progreso"),
+    salidaChips: Array.from(document.querySelectorAll(".pose--salida")),
 };
 
 // --- Utilidades ---------------------------------------------------------
@@ -252,6 +257,10 @@ function alIniciarGesto(evento) {
     if (!estadoPuño.armado || estadoPuño.temporizador !== null) return;
     if (performance.now() < estadoPuño.enfriadoHasta) return;
 
+    // Un pulgar hacia abajo también clasifica como "fist" (gestures.js no
+    // mira el pulgar): en la bienvenida no debe abrir la galería.
+    if (esPulgarAbajo(evento)) return;
+
     // Se desarma hasta que la mano se abra: el mismo puño no puede
     // disparar la transición dos veces.
     estadoPuño.armado = false;
@@ -261,6 +270,15 @@ function alIniciarGesto(evento) {
         estadoPuño.temporizador = null;
         estadoPuño.enfriadoHasta = performance.now() + PUÑO.enfriamientoMs;
         ocultarCarga();
+
+        // Segunda comprobación, en el instante de entrar: si la mano terminó
+        // siendo un pulgar hacia abajo, no se entra y hay que abrir la mano
+        // para volver a armar el gesto.
+        if (detectarPulgarAbajo()) {
+            estadoPuño.armado = false;
+            return;
+        }
+
         transicionHacia("galeria");
     }, PUÑO.cargaMs);
 }
@@ -268,11 +286,11 @@ function alIniciarGesto(evento) {
 // --- Regreso: pulgar arriba ---------------------------------------------
 //
 // El pulgar sostenido vuelve a la pantalla anterior desde cualquier pantalla
-// que tenga "volver". La experiencia queda afuera a propósito: ahí el puño
-// cerrado pertenece a la obra (atraer partículas) y un pulgar arriba natural
-// mientras se sostiene el puño no puede sacarte de la obra; la salida queda
-// en el botón Salir. La bienvenida tampoco tiene regreso: ahí el puño sigue
-// siendo la entrada a la galería.
+// que tenga "volver". La experiencia queda afuera a propósito: ahí no hay
+// ningún gesto de regreso (la salida es el botón Salir) y un pulgar arriba
+// natural mientras se sostiene una postura sobre la obra no puede sacarte de
+// ella. La bienvenida tampoco tiene regreso: ahí el puño sigue siendo la
+// entrada a la galería.
 
 const REGRESOS = {
     galeria: {
@@ -391,6 +409,261 @@ function conectarGestos() {
 
     Gestures.on("gesturestart", alIniciarGesto);
     Gestures.on("gestureend", alTerminarGesto);
+}
+
+// --- Salida global: pulgar hacia abajo ----------------------------------
+//
+// El pulgar hacia abajo es el gesto universal de regreso. Es el espejo del
+// pulgar arriba que ya vive en este archivo: gestures.js no lo clasifica
+// (un 👎 entra como "fist", porque sólo mira los cuatro dedos largos), así
+// que se resuelve acá sobre los 21 keypoints reales de handpose.js, sin
+// eventos inventados.
+//
+// Geometría: el pulgar está desplegado cuando su punta se aleja de la palma
+// (alcance) y apunta hacia abajo cuando el eje muñeca→punta tiene dy
+// positivo. Los umbrales son excluyentes con los del pulgar arriba
+// (ui.js:170), así que una mano nunca puede ser las dos cosas.
+//
+// A diferencia del pulgar arriba, este gesto NO usa el overlay compartido
+// #cargaPuño: tiene su propio aviso (#avisoSalida). Así los dos flujos no
+// se pisan si el reconocedor los solapa.
+
+const SALIDA = {
+    // Mismo criterio que PULGAR: pulgar desplegado, no recogido en el puño.
+    alcance: 0.85,
+    // Cuánto tiene que apuntar hacia abajo el eje muñeca → punta del pulgar.
+    verticalidad: 0.5,
+    // Tiempo que hay que sostener el gesto antes de ejecutar la salida.
+    sostenidoMs: 900,
+    // Tolerancia a un parpadeo del modelo: no corta el gesto acumulado.
+    graciaMs: 160,
+    // Latido de la comprobación por frame.
+    intervaloMs: 50,
+    // Espera obligatoria entre una salida ejecutada y la siguiente.
+    enfriamientoMs: 2200,
+    // Cuánto se deja ver el aviso antes de navegar.
+    avisoMs: 420,
+    // Margen para liberar el bloqueo tras salir de la experiencia (su
+    // transición no devuelve promesa: la maneja Gamelogic).
+    liberacionMs: 1400,
+};
+
+// Único destino de regreso por pantalla. La experiencia se resuelve aparte
+// con Gamelogic.salir(); "inicio" no tiene anterior y no aparece acá.
+const DESTINOS_SALIDA = {
+    galeria: "inicio",
+    instrucciones: "galeria",
+    finalizado: "galeria",
+};
+
+const salida = {
+    desde: null,
+    handId: null,
+    ultimoValido: 0,
+    listo: false,
+    bloqueadoHasta: 0,
+    // Tras ejecutar, la misma mano tiene que abandonar el gesto antes de
+    // poder disparar otra vez: una detección = un único regreso.
+    esperandoNeutral: false,
+};
+
+function pulgarAbajo(mano) {
+    if (!mano || !mano.keypoints || mano.keypoints.length < 21) return false;
+
+    const keypoints = mano.keypoints;
+    const muneca = keypoints[0];
+    const punta = keypoints[4];
+    const tamano = distancia(muneca, keypoints[9]);
+
+    if (tamano <= 0) return false;
+    if (distancia(punta, centroPalma(keypoints)) / tamano < SALIDA.alcance) return false;
+
+    const dx = punta.x - muneca.x;
+    const dy = punta.y - muneca.y;
+    const largo = Math.hypot(dx, dy);
+
+    if (largo <= 0) return false;
+
+    // En pantalla la Y crece hacia abajo: +dy / largo es "hacia abajo".
+    return dy / largo >= SALIDA.verticalidad;
+}
+
+// Mano viva del evento: `hands` la actualiza handpose.js en cada frame. No
+// se usa Gestures.snapshots() acá porque gesturestart se emite DENTRO de
+// Gestures.update, antes de que los snapshots del frame queden publicados.
+function manoDelEvento(evento) {
+    if (typeof hands === "undefined" || !Array.isArray(hands) || hands.length === 0) return null;
+    if (evento && typeof evento.handIndex === "number" && hands[evento.handIndex]) {
+        return hands[evento.handIndex];
+    }
+    return manoDelSnapshot(evento);
+}
+
+// El evento ya garantiza que la postura es un puño, así que acá sólo hace
+// falta medir hacia dónde apunta el pulgar.
+function esPulgarAbajo(evento) {
+    const mano = manoDelEvento(evento);
+    return mano ? pulgarAbajo(mano) : false;
+}
+
+// Busca, entre los puños estables que publica gestures.js, uno que además
+// tenga el pulgar apuntando hacia abajo. Devuelve su identidad para poder
+// atar el rearme a la misma mano.
+function detectarPulgarAbajo() {
+    if (typeof Gestures === "undefined" || typeof Gestures.snapshots !== "function") return null;
+
+    for (const snapshot of Gestures.snapshots()) {
+        if (snapshot.posture !== PUÑO.gesto) continue;
+        const mano = manoDelSnapshot(snapshot);
+        if (!mano || !pulgarAbajo(mano)) continue;
+        return { handId: snapshot.handId, mano };
+    }
+
+    return null;
+}
+
+// Qué debe hacer el gesto en la pantalla activa, o null si no hay anterior.
+function accionDeSalida() {
+    if (pantallaActual === "experiencia") {
+        return { experiencia: true, destino: "galeria" };
+    }
+    const destino = DESTINOS_SALIDA[pantallaActual];
+    return destino ? { experiencia: false, destino } : null;
+}
+
+function pintarProgresoSalida(progreso) {
+    if (!nodos.avisoProgreso) return;
+    const largo = 289;
+    nodos.avisoProgreso.style.strokeDashoffset = String(largo * (1 - progreso));
+}
+
+function mostrarAvisoSalida(accion) {
+    // El indicador de todos los pies se enciende con el mismo criterio, así
+    // la respuesta visual es la misma en cualquier pantalla.
+    for (const chip of nodos.salidaChips) chip.classList.add("activa");
+
+    if (!nodos.avisoSalida) return;
+    if (nodos.avisoTitulo) {
+        nodos.avisoTitulo.textContent = accion.experiencia ? "Saliendo" : "Regresando";
+    }
+    if (nodos.avisoDestino) {
+        nodos.avisoDestino.textContent = accion.experiencia
+            ? "De la obra"
+            : accion.destino === "inicio"
+                ? "Al inicio"
+                : "A la galería";
+    }
+    nodos.avisoSalida.classList.add("activo");
+}
+
+function ocultarAvisoSalida() {
+    for (const chip of nodos.salidaChips) chip.classList.remove("activa");
+    if (nodos.avisoSalida) nodos.avisoSalida.classList.remove("activo");
+    pintarProgresoSalida(0);
+}
+
+function cancelarSalida() {
+    salida.desde = null;
+    salida.handId = null;
+    if (nodos.avisoSalida && nodos.avisoSalida.classList.contains("activo")) {
+        ocultarAvisoSalida();
+    }
+}
+
+function completarSalida(accion) {
+    if (salida.listo) return;
+    salida.listo = true;
+    salida.esperandoNeutral = true;
+    salida.bloqueadoHasta = performance.now() + SALIDA.enfriamientoMs;
+    pintarProgresoSalida(1);
+
+    window.setTimeout(() => {
+        ocultarAvisoSalida();
+        salida.desde = null;
+        salida.handId = null;
+
+        if (accion.experiencia) {
+            // Camino único y correcto para salir de la obra: destruye el
+            // lienzo, devuelve la cámara, corta la música y transiciona.
+            if (typeof Gamelogic !== "undefined" && typeof Gamelogic.salir === "function") {
+                Gamelogic.salir();
+            }
+            window.setTimeout(() => {
+                salida.listo = false;
+            }, SALIDA.liberacionMs);
+            return;
+        }
+
+        transicionHacia(accion.destino).then(() => {
+            salida.listo = false;
+        });
+    }, SALIDA.avisoMs);
+}
+
+function pasoSalida() {
+    const ahora = performance.now();
+    const deteccion = detectarPulgarAbajo();
+
+    // Rearme: hace falta que la mano abandone el gesto (postura neutral)
+    // para que el mismo gesto pueda volver a dispararse.
+    if (!deteccion) salida.esperandoNeutral = false;
+
+    // Una transición en curso o una salida ya ejecutada no se repiten.
+    if (transicionando || salida.listo) {
+        cancelarSalida();
+        return;
+    }
+
+    const accion = accionDeSalida();
+    if (!accion) {
+        // Bienvenida: no hay pantalla anterior. El gesto se consume en
+        // silencio; el puño de entrada está protegido en alIniciarGesto.
+        cancelarSalida();
+        return;
+    }
+
+    if (ahora < salida.bloqueadoHasta) {
+        // Cooldown: el detector sigue vivo, la acción no.
+        cancelarSalida();
+        return;
+    }
+
+    if (!deteccion) {
+        // Si el gesto ya venía acumulando, se le da un margen corto para
+        // sobrevivir a un frame perdido del modelo.
+        if (salida.desde !== null && ahora - salida.ultimoValido > SALIDA.graciaMs) {
+            cancelarSalida();
+        }
+        return;
+    }
+
+    if (salida.esperandoNeutral) {
+        cancelarSalida();
+        return;
+    }
+
+    salida.ultimoValido = ahora;
+
+    if (salida.desde === null || salida.handId !== deteccion.handId) {
+        salida.desde = ahora;
+        salida.handId = deteccion.handId;
+        mostrarAvisoSalida(accion);
+        pintarProgresoSalida(0);
+    }
+
+    const progreso = Math.min(1, (ahora - salida.desde) / SALIDA.sostenidoMs);
+    pintarProgresoSalida(progreso);
+
+    if (progreso >= 1) completarSalida(accion);
+}
+
+function cicloSalida() {
+    pasoSalida();
+    window.requestAnimationFrame(cicloSalida);
+}
+
+function iniciarSalida() {
+    window.requestAnimationFrame(cicloSalida);
 }
 
 // --- Puntero con el meñique ---------------------------------------------
@@ -838,6 +1111,7 @@ function iniciar() {
     conectarBotones();
     conectarGestos();
     iniciarPuntero();
+    iniciarSalida();
 
     if (nodos.estado) nodos.estado.textContent = ESTADO_INICIAL;
 }
