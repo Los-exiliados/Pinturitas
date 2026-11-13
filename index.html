@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="description" content="Pinceladas de vida: una experiencia de arte interactivo.">
+
+    <title>Pinceladas de vida</title>
+
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="estilos.css">
+
+    <!-- Librería para crear gráficos e interacciones -->
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.11.8/lib/p5.min.js"></script>
+
+    <!-- Librería para detección de manos e inteligencia artificial -->
+    <script src="https://cdn.jsdelivr.net/npm/ml5@1.4.0/dist/ml5.min.js"></script>
+
+</head>
+
+<body>
+
+    <!-- PANTALLA 1: BIENVENIDA -->
+    <main id="inicio" class="pantalla activa">
+
+        <!-- Atmósfera: manchas de color, grano y partículas -->
+        <div class="atmosfera" aria-hidden="true">
+            <span class="mancha mancha--a"></span>
+            <span class="mancha mancha--b"></span>
+            <span class="mancha mancha--c"></span>
+            <div id="particulas" class="particulas"></div>
+            <span class="grano"></span>
+        </div>
+
+        <header class="barra">
+            <a href="#" class="logo">PINCELADAS DE VIDA</a>
+            <span class="indice">EXPERIENCIA INTERACTIVA · 001</span>
+        </header>
+
+        <section class="escena escena--inicio">
+
+            <!-- Fragmentos de obras: se generan desde js/ui.js -->
+            <div id="obrasFlotantes" class="collage" aria-hidden="true"></div>
+
+            <div class="bloque">
+
+                <p class="kicker"><span class="regla" aria-hidden="true"></span>EL ARTE COBRA VIDA</p>
+
+                <h1 class="titular">
+                    <span class="t-bienvenido">Bienvenido</span>
+                    <span class="t-conector">a</span>
+                    <span class="t-nombre">Pinceladas<br>de vida</span>
+                </h1>
+
+                <p class="cita">
+                    «El arte no solo se observa, también se siente,
+                    se mueve y se transforma».
+                </p>
+
+                <p class="invita">
+                    Acércate, explora y descubre lo que tus manos pueden crear.
+                </p>
+
+                <div class="acciones">
+                    <button id="btnEntrar" class="boton">Explorar experiencia</button>
+                    <p class="pista"><span class="pulso" aria-hidden="true"></span>Cerrá el puño para entrar</p>
+                </div>
+
+            </div>
+
+            <span class="marca marca--izq" aria-hidden="true">SALA 01 · INSTALACIÓN</span>
+
+        </section>
+
+        <footer class="pie">
+            <span>EXPLORA · EXPERIMENTA · CREA</span>
+
+            <div class="poses poses--pie">
+                <div class="pose" title="Puño cerrado">
+                    <span class="pose-icono" aria-hidden="true">✊</span>
+                    <span class="pose-nombre">Puño</span>
+                    <span class="pose-desc">Iniciar</span>
+                </div>
+                <div class="pose" title="Palma abierta">
+                    <span class="pose-icono" aria-hidden="true">✋</span>
+                    <span class="pose-nombre">Palma</span>
+                    <span class="pose-desc">Pintar el cielo</span>
+                </div>
+                <div class="pose" title="Índice extendido">
+                    <span class="pose-icono" aria-hidden="true">☝️</span>
+                    <span class="pose-nombre">Índice</span>
+                    <span class="pose-desc">Girar los remolinos</span>
+                </div>
+                <div class="pose" title="Paz: índice y medio extendidos">
+                    <span class="pose-icono" aria-hidden="true">✌️</span>
+                    <span class="pose-nombre">Paz</span>
+                    <span class="pose-desc">Lluvia de meteoritos</span>
+                </div>
+                <div class="pose" title="Abrir y cerrar la mano">
+                    <span class="pose-icono" aria-hidden="true">🖐️✊</span>
+                    <span class="pose-nombre">Abrir / cerrar</span>
+                    <span class="pose-desc">Atraer y dispersar</span>
+                </div>
+            </div>
+
+            <span>2026</span>
+        </footer>
+
+    </main>
+
+
+    <!-- PANTALLA 2: GALERÍA -->
+    <section id="galeria" class="pantalla">
+
+        <header class="barra">
+            <a href="#" class="logo">PINCELADAS DE VIDA</a>
+
+            <div class="barra-derecha">
+                <span class="indice">02 / COLECCIÓN</span>
+                <button id="btnVolverInicio" class="boton boton--fantasma">Volver al inicio</button>
+            </div>
+        </header>
+
+        <section class="escena escena--galeria">
+
+            <h2 class="solo-lectores">Galería de obras</h2>
+
+            <!-- Las seis obras se generan desde js/ui.js -->
+            <div id="contenedorObras" class="piezas"></div>
+
+        </section>
+
+        <footer class="pie pie--galeria">
+            <p id="estadoObra" class="estado" role="status" aria-live="polite">Elegí una obra para comenzar.</p>
+
+            <div class="poses poses--pie">
+                <div class="pose" title="Puño cerrado">
+                    <span class="pose-icono" aria-hidden="true">✊</span>
+                    <span class="pose-nombre">Puño</span>
+                    <span class="pose-desc">Iniciar</span>
+                </div>
+                <div class="pose" title="Palma abierta">
+                    <span class="pose-icono" aria-hidden="true">✋</span>
+                    <span class="pose-nombre">Palma</span>
+                    <span class="pose-desc">Pintar el cielo</span>
+                </div>
+                <div class="pose" title="Índice extendido">
+                    <span class="pose-icono" aria-hidden="true">☝️</span>
+                    <span class="pose-nombre">Índice</span>
+                    <span class="pose-desc">Girar los remolinos</span>
+                </div>
+                <div class="pose" title="Paz: índice y medio extendidos">
+                    <span class="pose-icono" aria-hidden="true">✌️</span>
+                    <span class="pose-nombre">Paz</span>
+                    <span class="pose-desc">Lluvia de meteoritos</span>
+                </div>
+                <div class="pose" title="Abrir y cerrar la mano">
+                    <span class="pose-icono" aria-hidden="true">🖐️✊</span>
+                    <span class="pose-nombre">Abrir / cerrar</span>
+                    <span class="pose-desc">Atraer y dispersar</span>
+                </div>
+            </div>
+
+            <span class="pie-nota">PULGAR ARRIBA PARA VOLVER</span>
+        </footer>
+
+    </section>
+
+
+    <!-- PANTALLA 3: INSTRUCCIONES -->
+    <section id="instrucciones" class="pantalla">
+
+        <header>
+            <p>02 / PREPARA TU EXPERIENCIA</p>
+            <h2>El movimiento crea.</h2>
+        </header>
+
+        <div class="instrucciones-contenido">
+            <p>
+                Utiliza tus manos frente a la cámara para
+                interactuar con los elementos de la pintura.
+            </p>
+
+            <button id="btnActivarCamara">
+                Activar cámara
+            </button>
+        </div>
+
+        <button id="btnVolverGaleria">Volver a la galería</button>
+
+    </section>
+
+
+    <!-- PANTALLA 4: EXPERIENCIA INTERACTIVA -->
+    <section id="experiencia" class="pantalla">
+
+        <!-- Cabecera negra: datos de la obra -->
+        <header class="barra-experiencia">
+            <div class="obra-datos">
+                <h2 id="tituloObra">La noche estrellada</h2>
+                <p class="obra-firma">
+                    <span id="obraAutor">Vincent van Gogh</span>
+                    <span class="obra-sep" aria-hidden="true">·</span>
+                    <span id="obraAnio">1889</span>
+                </p>
+                <p id="estadoExperiencia" class="estado-experiencia" role="status" aria-live="polite"></p>
+            </div>
+
+            <div class="controles">
+                <button id="btnPausar">Pausar</button>
+                <button id="btnReiniciar">Reiniciar</button>
+                <button id="btnSalir">Salir</button>
+            </div>
+        </header>
+
+        <!-- La obra: ocupa todo el ancho y el centro de la pantalla -->
+        <div id="contenedorLienzo">
+            <!-- Aquí se mostrará el canvas de p5.js -->
+        </div>
+
+        <!-- Pie: cámara en la esquina izquierda y poses a la derecha -->
+        <footer class="pie-experiencia">
+            <div class="caja-camara" aria-hidden="true">
+                <!-- Acá se aloja la cámara en tiempo real durante la experiencia -->
+            </div>
+
+            <div class="poses">
+                <div class="pose" title="Puño cerrado">
+                    <span class="pose-icono" aria-hidden="true">✊</span>
+                    <span class="pose-nombre">Puño</span>
+                    <span class="pose-desc">Iniciar</span>
+                </div>
+                <div class="pose" title="Palma abierta">
+                    <span class="pose-icono" aria-hidden="true">✋</span>
+                    <span class="pose-nombre">Palma</span>
+                    <span class="pose-desc">Pintar el cielo</span>
+                </div>
+                <div class="pose" title="Índice extendido">
+                    <span class="pose-icono" aria-hidden="true">☝️</span>
+                    <span class="pose-nombre">Índice</span>
+                    <span class="pose-desc">Girar los remolinos</span>
+                </div>
+                <div class="pose" title="Paz: índice y medio extendidos">
+                    <span class="pose-icono" aria-hidden="true">✌️</span>
+                    <span class="pose-nombre">Paz</span>
+                    <span class="pose-desc">Lluvia de meteoritos</span>
+                </div>
+                <div class="pose" title="Abrir y cerrar la mano">
+                    <span class="pose-icono" aria-hidden="true">🖐️✊</span>
+                    <span class="pose-nombre">Abrir / cerrar</span>
+                    <span class="pose-desc">Atraer y dispersar</span>
+                </div>
+            </div>
+        </footer>
+
+    </section>
+
+
+    <!-- PANTALLA 5: FINALIZACIÓN -->
+    <section id="finalizado" class="pantalla">
+
+        <h2>Tu obra ha cobrado vida.</h2>
+
+        <p>Gracias por formar parte de esta experiencia.</p>
+
+        <button id="btnGuardar">Guardar creación</button>
+        <button id="btnVolverGaleriaFinal">Volver a la galería</button>
+
+    </section>
+
+
+    <!-- CAPAS COMPARTIDAS: confirmación del gesto y transición -->
+    <div id="cargaPuño" class="carga" role="status" aria-live="polite">
+        <svg class="anillo" viewBox="0 0 100 100" aria-hidden="true">
+            <circle cx="50" cy="50" r="46"></circle>
+        </svg>
+        <p class="carga-texto">Gesto reconocido</p>
+    </div>
+
+    <div id="transicion" class="transicion" aria-hidden="true"></div>
+
+    <!-- SCRIPTS DEL PROYECTO -->
+
+    <!-- Detección de manos -->
+    <script src="js/handpose.js"></script>
+
+    <!-- Reconocimiento de gestos -->
+    <script src="js/gestures.js"></script>
+
+    <!-- Catálogo de obras e imágenes -->
+    <script src="js/obras.js"></script>
+
+    <!-- Motor visual (lienzo de la pintura) -->
+    <script src="js/artwork.js"></script>
+
+    <!-- Música ambiental de la experiencia -->
+    <script src="js/musica.js"></script>
+
+    <!-- Lógica de la experiencia -->
+    <script src="js/gamelogic.js"></script>
+
+    <!-- Navegación y controles de la interfaz -->
+    <script src="js/ui.js"></script>
+
+    <!-- DEBUG TEMPORAL (ETAPA 2): estado de la pinza. Quitar junto con js/pinza-debug.js -->
+    <script src="js/pinza-debug.js"></script>
+
+</body>
+
+</html>

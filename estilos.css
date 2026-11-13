@@ -1,0 +1,1480 @@
+
+/* =========================================================
+   PINCELADAS DE VIDA
+   Interfaz · instalación 1920 × 1080
+========================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@400;500;700&display=swap');
+
+:root {
+    --negro: #08090d;
+    --azul-noche: #10141f;
+    --carbon: #1a1f2b;
+    --marfil: #F2E9D8;
+    --beige: #D7C7A7;
+    --terracota: #C6664A;
+    --naranja: #E08B3E;
+    --azul-electrico: #3D7BFF;
+
+    --serif: 'Cormorant Garamond', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+
+    --margen: 4.2vw;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    background-color: var(--negro);
+    color: var(--marfil);
+    font-family: var(--sans);
+}
+
+.solo-lectores {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+/* =========================================================
+   PANTALLAS
+========================================================= */
+
+.pantalla {
+    display: none;
+}
+
+.pantalla.activa {
+    display: block;
+}
+
+#inicio,
+#galeria {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0 var(--margen);
+}
+
+#inicio.activa,
+#galeria.activa {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+}
+
+#instrucciones,
+#finalizado {
+    min-height: 100vh;
+    padding: 4vh 6vw;
+}
+
+#instrucciones {
+    background-color: var(--azul-noche);
+}
+
+/* Experiencia: cabecera negra, obra al centro y pie con las poses. */
+#experiencia:not(.activa) {
+    display: none;
+}
+
+#experiencia {
+    height: 100dvh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    background-color: var(--negro);
+    overflow: hidden;
+}
+
+#experiencia.activa {
+    display: grid;
+}
+
+/* =========================================================
+   BARRA SUPERIOR Y PIE
+========================================================= */
+
+.barra {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: clamp(14px, 2.2vh, 26px) 0 clamp(10px, 1.5vh, 16px);
+    border-bottom: 1px solid rgba(242, 233, 216, 0.14);
+    position: relative;
+    z-index: 6;
+}
+
+.barra-derecha {
+    display: flex;
+    align-items: center;
+    gap: clamp(14px, 1.6vw, 30px);
+}
+
+.logo {
+    color: var(--marfil);
+    text-decoration: none;
+    font-size: clamp(9px, 0.72vw, 13px);
+    font-weight: 700;
+    letter-spacing: 0.34em;
+    white-space: nowrap;
+}
+
+.indice {
+    color: rgba(242, 233, 216, 0.42);
+    font-size: clamp(7px, 0.58vw, 10px);
+    letter-spacing: 0.32em;
+    white-space: nowrap;
+}
+
+.pie {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: clamp(12px, 1.6vw, 28px);
+    padding: clamp(10px, 1.5vh, 16px) 0;
+    border-top: 1px solid rgba(242, 233, 216, 0.14);
+    color: rgba(242, 233, 216, 0.4);
+    font-size: clamp(7px, 0.55vw, 9px);
+    letter-spacing: 0.3em;
+    position: relative;
+    z-index: 6;
+}
+
+.pie > :last-child {
+    justify-self: end;
+}
+
+.pie--galeria {
+    border-top-color: rgba(242, 233, 216, 0.1);
+}
+
+.estado {
+    color: rgba(242, 233, 216, 0.55);
+    font-size: clamp(8px, 0.65vw, 11px);
+    letter-spacing: 0.12em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pie-nota {
+    white-space: nowrap;
+}
+
+/* Leyenda de gestos compartida por los pies de bienvenida y galería. */
+.poses--pie {
+    flex: 0 1 auto;
+    justify-content: center;
+    gap: clamp(8px, 1.2vw, 20px);
+}
+
+.poses--pie .pose {
+    min-width: clamp(38px, 3.6vw, 62px);
+}
+
+.poses--pie .pose-icono {
+    font-size: clamp(11px, 1.1vw, 16px);
+}
+
+.poses--pie .pose-desc {
+    letter-spacing: 0.08em;
+}
+
+/* =========================================================
+   BOTONES
+========================================================= */
+
+.boton {
+    background-color: transparent;
+    color: var(--marfil);
+    border: 1px solid rgba(242, 233, 216, 0.42);
+    padding: clamp(11px, 1.6vh, 17px) clamp(18px, 1.8vw, 32px);
+    font-family: var(--sans);
+    font-size: clamp(8px, 0.66vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.boton:hover {
+    background-color: var(--marfil);
+    color: var(--negro);
+    border-color: var(--marfil);
+    transform: translateY(-2px);
+}
+
+.boton:focus-visible {
+    outline: 1px solid var(--naranja);
+    outline-offset: 4px;
+}
+
+.boton--fantasma {
+    padding: clamp(8px, 1.1vh, 12px) clamp(13px, 1.2vw, 20px);
+    font-size: clamp(7px, 0.55vw, 9px);
+    border-color: rgba(242, 233, 216, 0.28);
+    color: rgba(242, 233, 216, 0.75);
+}
+
+.boton--fantasma:hover {
+    background-color: var(--terracota);
+    border-color: var(--terracota);
+    color: var(--marfil);
+}
+
+/* =========================================================
+   ATMÓSFERA
+========================================================= */
+
+#inicio::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background-image:
+        radial-gradient(ellipse at 18% 12%, rgba(198, 102, 74, 0.28), transparent 52%),
+        linear-gradient(104deg, rgba(6, 7, 11, 0.97) 0%, rgba(12, 15, 23, 0.9) 38%, rgba(16, 20, 31, 0.55) 74%, rgba(8, 9, 13, 0.82) 100%);
+}
+
+.atmosfera {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.mancha {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.5;
+    animation: respirar 26s ease-in-out infinite alternate;
+}
+
+.mancha--a {
+    width: 48vw;
+    height: 48vw;
+    left: -14vw;
+    top: -14vw;
+    background: radial-gradient(circle, rgba(198, 102, 74, 0.6), transparent 68%);
+}
+
+.mancha--b {
+    width: 38vw;
+    height: 38vw;
+    right: -6vw;
+    top: 4vh;
+    background: radial-gradient(circle, rgba(61, 123, 255, 0.38), transparent 68%);
+    animation-delay: -9s;
+}
+
+.mancha--c {
+    width: 34vw;
+    height: 34vw;
+    left: 34vw;
+    bottom: -16vw;
+    background: radial-gradient(circle, rgba(224, 139, 62, 0.3), transparent 68%);
+    animation-delay: -16s;
+}
+
+.particulas {
+    position: absolute;
+    inset: 0;
+}
+
+.particula {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--s);
+    height: var(--s);
+    border-radius: 50%;
+    background-color: rgba(242, 233, 216, 0.55);
+    animation: derivar var(--d) linear var(--retraso) infinite;
+    opacity: 0;
+}
+
+.grano {
+    position: absolute;
+    inset: 0;
+    opacity: 0.14;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* =========================================================
+   ESCENA
+========================================================= */
+
+.escena {
+    position: relative;
+    z-index: 3;
+    min-height: 0;
+}
+
+/* =========================================================
+   BIENVENIDA · COMPOSICIÓN
+========================================================= */
+
+.bloque {
+    position: relative;
+    z-index: 4;
+    max-width: 58%;
+    align-self: center;
+    padding: clamp(10px, 2.4vh, 40px) 0 clamp(10px, 2vh, 32px);
+}
+
+.kicker {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--terracota);
+    font-size: clamp(7px, 0.6vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.42em;
+    margin-bottom: clamp(10px, 2vh, 26px);
+}
+
+.regla {
+    display: block;
+    width: clamp(20px, 2.4vw, 46px);
+    height: 1px;
+    background-color: var(--terracota);
+}
+
+.titular {
+    font-weight: 300;
+    letter-spacing: -0.022em;
+}
+
+.t-bienvenido {
+    display: block;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(54px, min(10.4vw, 21vh), 250px);
+    line-height: 0.82;
+}
+
+.t-conector {
+    display: block;
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(15px, min(1.9vw, 3.8vh), 44px);
+    line-height: 1;
+    color: var(--terracota);
+    margin: 0.28em 0 0.1em;
+}
+
+.t-nombre {
+    display: block;
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(30px, min(4.7vw, 9.4vh), 112px);
+    line-height: 0.94;
+    color: var(--beige);
+}
+
+.cita {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: clamp(13px, min(1.1vw, 2.1vh), 24px);
+    line-height: 1.5;
+    color: rgba(242, 233, 216, 0.82);
+    max-width: 42ch;
+    border-left: 1px solid rgba(198, 102, 74, 0.7);
+    padding-left: clamp(10px, 0.9vw, 18px);
+    margin: clamp(12px, 2.2vh, 30px) 0 clamp(6px, 1vh, 12px);
+}
+
+.invita {
+    font-size: clamp(9px, min(0.78vw, 1.5vh), 15px);
+    line-height: 1.7;
+    letter-spacing: 0.04em;
+    color: rgba(242, 233, 216, 0.5);
+    max-width: 44ch;
+}
+
+.acciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: clamp(12px, 1.4vw, 26px);
+    margin-top: clamp(14px, 2.6vh, 34px);
+}
+
+.pista {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: clamp(7px, 0.58vw, 10px);
+    font-weight: 700;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: rgba(242, 233, 216, 0.45);
+}
+
+.pulso {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: var(--terracota);
+    animation: pulso 2.8s ease-out infinite;
+}
+
+.marca {
+    position: absolute;
+    top: 50%;
+    z-index: 5;
+    writing-mode: vertical-rl;
+    font-size: clamp(6px, 0.5vw, 8px);
+    letter-spacing: 0.36em;
+    color: rgba(242, 233, 216, 0.26);
+}
+
+.marca--izq {
+    left: calc(var(--margen) * -0.55);
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.marca--der {
+    right: calc(var(--margen) * -0.55);
+    transform: translateY(-50%);
+}
+
+/* =========================================================
+   COLLAGE DE FRAGMENTOS
+========================================================= */
+
+.collage {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.fragmento {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--w);
+    height: var(--h);
+    z-index: var(--nivel, 1);
+    transform:
+        translate3d(calc(var(--px, 0) * var(--par, 12px)), calc(var(--py, 0) * var(--par, 9px)), 0) rotate(var(--rot, 0deg));
+    animation: aparecer 1.4s var(--retraso, 0s) both;
+}
+
+.fragmento .marco {
+    position: absolute;
+    inset: 0;
+    animation: flotar var(--dur, 16s) ease-in-out var(--retraso, 0s) infinite;
+}
+
+/* --- Reparto de fragmentos (desktop) --- */
+
+.fragmento:nth-child(1) {
+    --x: 44%;
+    --y: 0%;
+    --w: 23%;
+    --h: 43%;
+    --rot: -2.2deg;
+    --nivel: 1;
+    --par: 14px;
+}
+
+.fragmento:nth-child(2) {
+    --x: 68%;
+    --y: 4%;
+    --w: 18%;
+    --h: 47%;
+    --rot: 2.4deg;
+    --nivel: 5;
+    --par: 20px;
+    --dur: 19s;
+}
+
+.fragmento:nth-child(3) {
+    --x: 58%;
+    --y: 56%;
+    --w: 26%;
+    --h: 30%;
+    --rot: -1.4deg;
+    --nivel: 1;
+    --par: 10px;
+    --dur: 21s;
+}
+
+.fragmento:nth-child(4) {
+    --x: 87%;
+    --y: 40%;
+    --w: 12%;
+    --h: 19%;
+    --rot: 4.2deg;
+    --nivel: 5;
+    --par: 26px;
+    --dur: 14s;
+}
+
+.fragmento:nth-child(5) {
+    --x: 1%;
+    --y: 76%;
+    --w: 14%;
+    --h: 20%;
+    --rot: -3.4deg;
+    --nivel: 1;
+    --par: 8px;
+    --dur: 23s;
+    --retraso: 1.6s;
+}
+
+.fragmento:nth-child(6) {
+    --x: 33%;
+    --y: 66%;
+    --w: 13%;
+    --h: 21%;
+    --rot: 3.2deg;
+    --nivel: 5;
+    --par: 18px;
+    --dur: 17s;
+    --retraso: 0.8s;
+}
+
+/* =========================================================
+   MARCOS Y ARTE PROVISIONAL
+   Las imágenes definitivas entran como <img class="foto">:
+   el placeholder queda detrás y desaparece solo.
+========================================================= */
+
+.marco {
+    position: relative;
+    overflow: hidden;
+    background-color: #0c1018;
+    border: 1px solid rgba(242, 233, 216, 0.16);
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.45);
+    transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.4s ease, box-shadow 0.55s ease;
+}
+
+.foto {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    z-index: 2;
+}
+
+.foto[hidden] {
+    display: none;
+}
+
+.grano-marco {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+}
+
+/* --- Obra 1: La noche estrellada --- */
+
+.arte--noche {
+    background-color: #0a1428;
+    background-image:
+        radial-gradient(circle at 18% 14%, #ffeaa8 0 0.9%, transparent 1.4%),
+        radial-gradient(circle at 31% 8%, #ffeaa8 0 0.7%, transparent 1.1%),
+        radial-gradient(circle at 44% 18%, #fff2c4 0 1.1%, transparent 1.6%),
+        radial-gradient(circle at 57% 9%, #ffeaa8 0 0.8%, transparent 1.2%),
+        radial-gradient(circle at 72% 20%, #fff2c4 0 1%, transparent 1.5%),
+        radial-gradient(circle at 85% 12%, #ffeaa8 0 0.7%, transparent 1.1%),
+        radial-gradient(ellipse at 36% 32%, rgba(96, 152, 226, 0.5), transparent 46%),
+        radial-gradient(ellipse at 68% 26%, rgba(120, 170, 235, 0.35), transparent 40%),
+        linear-gradient(180deg, #08122a 0%, #122a52 58%, #0a1730 100%);
+}
+
+.arte--noche::before {
+    content: "";
+    position: absolute;
+    inset: 6% 10% 32% 4%;
+    background: conic-gradient(from 200deg at 50% 50%,
+            rgba(180, 214, 255, 0.22),
+            transparent 30%,
+            rgba(180, 214, 255, 0.18) 55%,
+            transparent 66%,
+            rgba(180, 214, 255, 0.2));
+    filter: blur(10px);
+    opacity: 0.7;
+}
+
+.arte--noche::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 19%;
+    background-color: #05080f;
+    clip-path: polygon(0 74%, 7% 56%, 13% 70%, 21% 46%, 28% 66%, 36% 52%, 44% 72%, 52% 42%, 59% 64%, 67% 54%, 75% 70%, 83% 48%, 91% 68%, 100% 58%, 100% 100%, 0 100%);
+}
+
+/* --- Obra 2: El caminante sobre el mar de nubes --- */
+
+.arte--caminante {
+    background-color: #8f9aa5;
+    background-image:
+        radial-gradient(ellipse at 52% 68%, rgba(238, 242, 246, 0.78), transparent 42%),
+        radial-gradient(ellipse at 24% 20%, rgba(96, 112, 128, 0.6), transparent 42%),
+        radial-gradient(ellipse at 76% 14%, rgba(110, 126, 142, 0.55), transparent 40%),
+        repeating-linear-gradient(178deg, rgba(255, 255, 255, 0.06) 0 6px, transparent 6px 26px),
+        linear-gradient(180deg, #5f6a77 0%, #8e9aa6 34%, #aab6bf 58%, #6f7a86 74%, #363e47 100%);
+}
+
+.arte--caminante::before {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 34%;
+    background: linear-gradient(180deg, rgba(52, 61, 71, 0.15), #2b333d 62%, #1d242c);
+}
+
+.arte--caminante::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 30%;
+    width: 8%;
+    height: 22%;
+    transform: translateX(-50%);
+    background-color: #131920;
+    clip-path: polygon(40% 0, 60% 0, 68% 34%, 80% 100%, 20% 100%, 32% 34%);
+}
+
+/* --- Obra 3: La gran ola de Kanagawa --- */
+
+.arte--ola {
+    background-color: #123a63;
+    background-image:
+        radial-gradient(ellipse at 76% 10%, rgba(246, 250, 253, 0.9), transparent 24%),
+        radial-gradient(ellipse at 34% 20%, rgba(120, 186, 226, 0.6), transparent 42%),
+        repeating-linear-gradient(116deg, rgba(255, 255, 255, 0.08) 0 7px, transparent 7px 26px),
+        linear-gradient(174deg, #0e3a66 0%, #1a5c88 42%, #0a2b47 74%, #061d31 100%);
+}
+
+.arte--ola::before {
+    content: "";
+    position: absolute;
+    inset: -8% -12% 44% -16%;
+    background: radial-gradient(ellipse at 32% 100%,
+            #e6f1fa 0 30%,
+            rgba(198, 226, 245, 0.72) 40%,
+            transparent 58%);
+    clip-path: ellipse(52% 54% at 30% 100%);
+    transform: rotate(-6deg);
+    opacity: 0.9;
+}
+
+.arte--ola::after {
+    content: "";
+    position: absolute;
+    right: 4%;
+    top: 34%;
+    width: 46%;
+    height: 22%;
+    background: radial-gradient(ellipse at 20% 100%, rgba(255, 255, 255, 0.5), transparent 62%);
+    filter: blur(4px);
+}
+
+/* --- Obra 4: Impresión, sol naciente --- */
+
+.arte--impresion {
+    background-color: #6f8296;
+    background-image:
+        radial-gradient(circle at 64% 23%, #f2883a 0 6.5%, rgba(242, 136, 58, 0.45) 7% 11%, transparent 12%),
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0 3px, transparent 3px 12px),
+        linear-gradient(180deg, #8b99aa 0 54%, #33505f 54%, #22343f 100%);
+}
+
+.arte--impresion::before {
+    content: "";
+    position: absolute;
+    left: 58%;
+    top: 27%;
+    width: 12%;
+    height: 30%;
+    background: radial-gradient(ellipse at 50% 0%, rgba(242, 136, 58, 0.5), transparent 72%);
+    filter: blur(7px);
+}
+
+/* --- Obra 5: La persistencia de la memoria --- */
+
+.arte--persistencia {
+    background-color: #5e5340;
+    background-image:
+        radial-gradient(ellipse at 28% 42%, rgba(240, 200, 120, 0.32), transparent 46%),
+        linear-gradient(180deg, #7e8ea0 0 34%, #8a7452 34% 60%, #33281c 60%, #1b150f 100%);
+}
+
+.arte--persistencia::before {
+    content: "";
+    position: absolute;
+    left: 16%;
+    top: 42%;
+    width: 26%;
+    height: 15%;
+    border-radius: 50% 50% 44% 44% / 62% 62% 38% 38%;
+    background-color: #d9c08a;
+    transform: rotate(-8deg);
+    opacity: 0.72;
+}
+
+/* --- Obra 6: Composición VIII --- */
+
+.arte--composicion {
+    background-color: #e3d8c2;
+    background-image:
+        radial-gradient(circle at 34% 34%, #c9553f 0 13%, transparent 13.6%),
+        conic-gradient(from 210deg at 68% 68%, #22364f 0 25%, transparent 25% 100%),
+        linear-gradient(140deg, #efe6d2, #ded2b8 60%, #c9bda2);
+}
+
+.arte--composicion::before {
+    content: "";
+    position: absolute;
+    inset: 10% 16% 48% 54%;
+    background-color: #1f3350;
+    clip-path: polygon(50% 0, 100% 100%, 0 100%);
+    opacity: 0.9;
+}
+
+.arte--composicion::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    top: 24%;
+    height: 5%;
+    background-color: #141414;
+    transform: rotate(-24deg);
+    opacity: 0.85;
+}
+
+/* =========================================================
+   GALERÍA
+========================================================= */
+
+.escena--galeria {
+    position: relative;
+}
+
+.piezas {
+    position: absolute;
+    inset: 0;
+}
+
+.pieza {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: var(--w);
+    height: var(--h);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(5px, 0.7vh, 9px);
+    transform: rotate(var(--rot, 0deg));
+    cursor: pointer;
+    outline: none;
+    transition: opacity 0.45s ease;
+}
+
+.pieza .marco {
+    flex: 1;
+    min-height: 0;
+}
+
+.pieza:nth-child(1) {
+    --x: -1%;
+    --y: -1%;
+    --w: 34%;
+    --h: 45%;
+    --rot: -1.8deg;
+}
+
+.pieza:nth-child(2) {
+    --x: 34.5%;
+    --y: 6%;
+    --w: 18%;
+    --h: 50%;
+    --rot: 2.2deg;
+}
+
+.pieza:nth-child(3) {
+    --x: 54%;
+    --y: -1%;
+    --w: 40%;
+    --h: 40%;
+    --rot: -2.6deg;
+}
+
+.pieza:nth-child(4) {
+    --x: 2%;
+    --y: 54%;
+    --w: 22%;
+    --h: 44%;
+    --rot: 2.4deg;
+}
+
+.pieza:nth-child(5) {
+    --x: 25.5%;
+    --y: 57%;
+    --w: 34%;
+    --h: 40%;
+    --rot: -1.6deg;
+}
+
+.pieza:nth-child(6) {
+    --x: 61%;
+    --y: 49%;
+    --w: 38%;
+    --h: 48%;
+    --rot: 1.8deg;
+}
+
+.datos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: none;
+}
+
+.datos h3 {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: clamp(12px, 1.1vw, 23px);
+    line-height: 1.08;
+    letter-spacing: 0.005em;
+}
+
+.autor {
+    font-size: clamp(7px, 0.56vw, 10px);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(242, 233, 216, 0.45);
+}
+
+.autor .anio {
+    color: var(--terracota);
+}
+
+.piezas:hover .pieza:not(:hover) {
+    opacity: 0.5;
+}
+
+.pieza:hover .marco,
+.pieza:focus-visible .marco {
+    transform: translateY(-7px) scale(1.012);
+    border-color: rgba(242, 233, 216, 0.55);
+    box-shadow: 0 34px 64px rgba(0, 0, 0, 0.6);
+}
+
+.pieza:focus-visible .marco {
+    border-color: var(--naranja);
+}
+
+.pieza.seleccionada .marco {
+    border-color: var(--terracota);
+    box-shadow: 0 0 0 1px var(--terracota), 0 28px 56px rgba(0, 0, 0, 0.55);
+}
+
+/* =========================================================
+   CONFIRMACIÓN DEL GESTO Y TRANSICIÓN
+========================================================= */
+
+.carga {
+    position: fixed;
+    inset: 0;
+    z-index: 8;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 22px;
+    background-color: rgba(6, 7, 11, 0.8);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.28s ease;
+}
+
+.carga.activo {
+    opacity: 1;
+}
+
+.anillo {
+    width: clamp(76px, 9vh, 118px);
+    height: clamp(76px, 9vh, 118px);
+}
+
+.anillo circle {
+    fill: none;
+    stroke: var(--terracota);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-dasharray: 289;
+    stroke-dashoffset: 289;
+    transform: rotate(-90deg);
+    transform-origin: 50% 50%;
+}
+
+.carga.activo .anillo circle {
+    stroke-dashoffset: 0;
+    transition: stroke-dashoffset 900ms linear;
+}
+
+/* En el regreso por pulgar el progreso lo maneja js/ui.js cuadro a cuadro. */
+.carga.manual .anillo circle {
+    transition: none;
+}
+
+.carga-texto {
+    font-size: clamp(8px, 0.66vw, 11px);
+    font-weight: 700;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: rgba(242, 233, 216, 0.82);
+}
+
+.transicion {
+    position: fixed;
+    inset: 0;
+    z-index: 9;
+    background-color: var(--negro);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.32s ease;
+}
+
+.transicion.activa {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* =========================================================
+   PANTALLAS 3 A 5 (sin cambios de comportamiento)
+========================================================= */
+
+#instrucciones header {
+    margin: 6vh 0 4vh;
+}
+
+#instrucciones h2 {
+    font-family: var(--serif);
+    font-size: clamp(36px, 4.2vw, 64px);
+    font-weight: 300;
+    margin: 12px 0;
+}
+
+#instrucciones header p {
+    color: var(--beige);
+    letter-spacing: 0.2em;
+    font-size: 10px;
+}
+
+.instrucciones-contenido {
+    max-width: 520px;
+    margin-bottom: 48px;
+}
+
+.instrucciones-contenido p {
+    color: rgba(242, 233, 216, 0.72);
+    line-height: 1.8;
+    margin-bottom: 26px;
+}
+
+.barra-experiencia {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: clamp(12px, 2vh, 22px) clamp(20px, 3vw, 48px);
+    background-color: var(--negro);
+    border-bottom: 1px solid rgba(242, 233, 216, 0.12);
+}
+
+.obra-datos h2 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(22px, 2.4vw, 38px);
+    line-height: 1.05;
+}
+
+.obra-firma {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 4px;
+    color: rgba(242, 233, 216, 0.6);
+    font-size: clamp(9px, 0.8vw, 13px);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.obra-sep {
+    color: var(--terracota);
+}
+
+.estado-experiencia {
+    margin-top: 6px;
+    color: var(--terracota);
+    font-size: clamp(7px, 0.55vw, 9px);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+}
+
+.controles {
+    display: flex;
+    gap: 10px;
+}
+
+.controles button {
+    background-color: transparent;
+    color: var(--marfil);
+    border: 1px solid rgba(242, 233, 216, 0.35);
+    padding: 10px 18px;
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.controles button:hover {
+    background-color: var(--terracota);
+    border-color: var(--terracota);
+}
+
+#contenedorLienzo {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    background-color: #05070c;
+}
+
+/* El lienzo de la pintura llena el área central, por encima del canvas de
+   cámara de handpose.js (fijo y detrás). No hereda el posicionamiento fijo
+   de ese canvas. */
+#contenedorLienzo canvas.p5Canvas,
+#contenedorLienzo canvas.lienzo-pintura {
+    position: absolute;
+    inset: 0;
+    z-index: auto;
+    pointer-events: auto;
+    display: block;
+}
+
+/* Capa de efectos (pinceladas de la palma): encima de la malla, sin
+   capturar eventos para que el clic de DEBUG llegue al lienzo. */
+#contenedorLienzo canvas.capa-efectos {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    display: block;
+}
+
+/* Pie de la experiencia: cámara a la izquierda, poses a la derecha.
+   Versión compacta para no quitarle espacio a la obra. */
+.pie-experiencia {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: clamp(10px, 1.4vw, 22px);
+    padding: clamp(6px, 1vh, 10px) clamp(12px, 1.6vw, 28px);
+    background-color: var(--negro);
+    border-top: 1px solid rgba(242, 233, 216, 0.12);
+}
+
+/* Recuadro de cámara en la esquina inferior izquierda del pie. */
+.caja-camara {
+    position: relative;
+    flex: none;
+    width: clamp(100px, 10vw, 170px);
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border: 1px solid rgba(242, 233, 216, 0.28);
+    border-radius: 4px;
+    background-color: #05070c;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+
+/* El canvas de cámara de handpose.js, alojado dentro del recuadro. */
+.caja-camara canvas.p5Canvas {
+    position: absolute;
+    inset: 0;
+    width: 100% !important;
+    height: 100% !important;
+    z-index: auto;
+    pointer-events: none;
+    display: block;
+}
+
+.poses {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: clamp(8px, 1.5vw, 22px);
+}
+
+.pose {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: clamp(44px, 4.6vw, 76px);
+    text-align: center;
+}
+
+.pose-icono {
+    font-size: clamp(13px, 1.4vw, 19px);
+    line-height: 1.1;
+}
+
+.pose-nombre {
+    color: var(--marfil);
+    font-size: clamp(6.5px, 0.5vw, 8px);
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.pose-desc {
+    color: var(--terracota);
+    font-size: clamp(5.5px, 0.42vw, 7px);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+/* Durante la experiencia, el canvas de cámara de handpose.js se aloja en el
+   recuadro del pie; el resto del tiempo sigue a pantalla completa detrás de
+   la interfaz (regla genérica canvas.p5Canvas). */
+
+#finalizado {
+    text-align: center;
+    padding-top: 20vh;
+}
+
+#finalizado h2 {
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(40px, 6vw, 82px);
+    margin-bottom: 18px;
+}
+
+#finalizado p {
+    color: var(--beige);
+    margin-bottom: 28px;
+}
+
+#finalizado button {
+    background-color: transparent;
+    color: var(--marfil);
+    border: 1px solid rgba(242, 233, 216, 0.4);
+    padding: 14px 24px;
+    font-family: var(--sans);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin: 0 6px;
+}
+
+#finalizado button:hover {
+    background-color: var(--terracota);
+    border-color: var(--terracota);
+}
+
+/* =========================================================
+   CÁMARA (canvas de p5)
+========================================================= */
+
+canvas.p5Canvas {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    display: block;
+}
+
+/* =========================================================
+   ANIMACIONES
+========================================================= */
+
+@keyframes respirar {
+    from {
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+
+    to {
+        transform: translate3d(2vw, -3vh, 0) scale(1.14);
+    }
+}
+
+@keyframes derivar {
+    0% {
+        transform: translate3d(0, 0, 0);
+        opacity: 0;
+    }
+
+    18% {
+        opacity: 0.7;
+    }
+
+    100% {
+        transform: translate3d(18px, -150px, 0);
+        opacity: 0;
+    }
+}
+
+@keyframes flotar {
+    50% {
+        transform: translateY(-11px);
+    }
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes pulso {
+    0% {
+        box-shadow: 0 0 0 0 rgba(198, 102, 74, 0.6);
+    }
+
+    70% {
+        box-shadow: 0 0 0 11px rgba(198, 102, 74, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(198, 102, 74, 0);
+    }
+}
+
+/* =========================================================
+   ADAPTACIÓN
+========================================================= */
+
+/* Portátiles bajos: se achica la tipografía para no desbordar. */
+@media (max-height: 820px) and (min-width: 721px) {
+
+    .bloque {
+        max-width: 62%;
+    }
+
+    .cita {
+        max-width: 46ch;
+    }
+}
+
+@media (max-width: 1024px) {
+
+    .bloque {
+        max-width: 68%;
+    }
+
+    .fragmento:nth-child(6) {
+        display: none;
+    }
+}
+
+/* Tablet y móvil: la galería pasa a mosaico compacto de 2 × 3. */
+@media (max-width: 720px) {
+
+    :root {
+        --margen: 5.5vw;
+    }
+
+    .indice {
+        display: none;
+    }
+
+    .bloque {
+        max-width: 100%;
+        align-self: center;
+        padding-bottom: clamp(16px, 3vh, 40px);
+    }
+
+    .t-bienvenido {
+        font-size: clamp(46px, 15vw, 96px);
+    }
+
+    .t-nombre {
+        font-size: clamp(26px, 9vw, 58px);
+    }
+
+    .cita {
+        max-width: 100%;
+    }
+
+    .invita {
+        max-width: 100%;
+    }
+
+    .acciones {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 14px;
+    }
+
+    .pista {
+        flex-wrap: wrap;
+        letter-spacing: 0.16em;
+        line-height: 1.7;
+    }
+
+    .marca {
+        display: none;
+    }
+
+    /* Fragmentos: collage de cinco piezas detrás del texto. */
+    .fragmento {
+        --nivel: 1;
+        opacity: 0.45;
+    }
+
+    .fragmento .marco {
+        border-color: rgba(242, 233, 216, 0.08);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .fragmento:nth-child(1) {
+        --x: 50%;
+        --y: 1%;
+        --w: 48%;
+        --h: 22%;
+        --rot: -3deg;
+    }
+
+    .fragmento:nth-child(2) {
+        --x: -6%;
+        --y: 50%;
+        --w: 42%;
+        --h: 22%;
+        --rot: 2.6deg;
+    }
+
+    .fragmento:nth-child(3) {
+        --x: 54%;
+        --y: 47%;
+        --w: 44%;
+        --h: 24%;
+        --rot: -2deg;
+    }
+
+    .fragmento:nth-child(4) {
+        --x: 2%;
+        --y: 73%;
+        --w: 42%;
+        --h: 20%;
+        --rot: 2deg;
+    }
+
+    .fragmento:nth-child(5) {
+        --x: 52%;
+        --y: 76%;
+        --w: 42%;
+        --h: 18%;
+        --rot: -2.4deg;
+    }
+
+    .fragmento:nth-child(6) {
+        display: none;
+    }
+
+    /* Galería en mosaico, sin scroll. */
+    .piezas {
+        position: relative;
+        inset: auto;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 10px 12px;
+        height: 100%;
+    }
+
+    .pieza {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: auto;
+        height: auto;
+        transform: none;
+        gap: 4px;
+    }
+
+    .datos h3 {
+        font-size: clamp(10px, 3vw, 14px);
+        line-height: 1.1;
+    }
+
+    .autor {
+        font-size: clamp(6px, 1.7vw, 8px);
+        letter-spacing: 0.12em;
+    }
+
+    .pieza:hover .marco,
+    .pieza:focus-visible .marco {
+        transform: none;
+    }
+
+    .estado {
+        white-space: normal;
+    }
+
+    .pie-nota {
+        display: none;
+    }
+}
+
+/* =========================================================
+   MOVIMIENTO REDUCIDO
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .mancha,
+    .particula,
+    .fragmento,
+    .fragmento .marco,
+    .pulso {
+        animation: none !important;
+    }
+
+    .fragmento {
+        transform: rotate(var(--rot, 0deg));
+    }
+
+    .transicion,
+    .carga {
+        transition: none;
+    }
+}
