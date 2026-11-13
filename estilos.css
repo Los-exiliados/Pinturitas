@@ -125,16 +125,16 @@ body {
 .logo {
     color: var(--marfil);
     text-decoration: none;
-    font-size: clamp(9px, 0.72vw, 13px);
+    font-size: clamp(10px, 0.8vw, 15px);
     font-weight: 700;
-    letter-spacing: 0.34em;
+    letter-spacing: 0.3em;
     white-space: nowrap;
 }
 
 .indice {
-    color: rgba(242, 233, 216, 0.42);
-    font-size: clamp(7px, 0.58vw, 10px);
-    letter-spacing: 0.32em;
+    color: rgba(242, 233, 216, 0.58);
+    font-size: clamp(8px, 0.66vw, 12px);
+    letter-spacing: 0.28em;
     white-space: nowrap;
 }
 
@@ -144,10 +144,10 @@ body {
     align-items: center;
     gap: clamp(12px, 1.6vw, 28px);
     padding: clamp(10px, 1.5vh, 16px) 0;
-    border-top: 1px solid rgba(242, 233, 216, 0.14);
-    color: rgba(242, 233, 216, 0.4);
-    font-size: clamp(7px, 0.55vw, 9px);
-    letter-spacing: 0.3em;
+    border-top: 1px solid rgba(242, 233, 216, 0.16);
+    color: rgba(242, 233, 216, 0.62);
+    font-size: clamp(9px, 0.72vw, 14px);
+    letter-spacing: 0.24em;
     position: relative;
     z-index: 6;
 }
@@ -161,9 +161,9 @@ body {
 }
 
 .estado {
-    color: rgba(242, 233, 216, 0.55);
-    font-size: clamp(8px, 0.65vw, 11px);
-    letter-spacing: 0.12em;
+    color: rgba(242, 233, 216, 0.78);
+    font-size: clamp(11px, 0.85vw, 16px);
+    letter-spacing: 0.1em;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -171,21 +171,25 @@ body {
 
 .pie-nota {
     white-space: nowrap;
+    color: rgba(242, 233, 216, 0.72);
+    font-weight: 700;
+    letter-spacing: 0.2em;
 }
 
-/* Leyenda de gestos compartida por los pies de bienvenida y galería. */
+/* Leyenda de gestos compartida por los pies de bienvenida y galería.
+   Tamaños pensados para leerse desde varios metros sobre 1920 x 1080. */
 .poses--pie {
     flex: 0 1 auto;
     justify-content: center;
-    gap: clamp(8px, 1.2vw, 20px);
+    gap: clamp(10px, 1.5vw, 30px);
 }
 
 .poses--pie .pose {
-    min-width: clamp(38px, 3.6vw, 62px);
+    min-width: clamp(64px, 6.6vw, 128px);
 }
 
 .poses--pie .pose-icono {
-    font-size: clamp(11px, 1.1vw, 16px);
+    font-size: clamp(22px, 2.1vw, 40px);
 }
 
 .poses--pie .pose-desc {
@@ -199,12 +203,13 @@ body {
 .boton {
     background-color: transparent;
     color: var(--marfil);
-    border: 1px solid rgba(242, 233, 216, 0.42);
-    padding: clamp(11px, 1.6vh, 17px) clamp(18px, 1.8vw, 32px);
+    border: 1px solid rgba(242, 233, 216, 0.55);
+    padding: clamp(13px, 1.9vh, 20px) clamp(24px, 2.2vw, 42px);
+    min-height: clamp(46px, 5.4vh, 62px);
     font-family: var(--sans);
-    font-size: clamp(8px, 0.66vw, 11px);
+    font-size: clamp(11px, 0.82vw, 16px);
     font-weight: 700;
-    letter-spacing: 0.24em;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     cursor: pointer;
     transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -223,10 +228,11 @@ body {
 }
 
 .boton--fantasma {
-    padding: clamp(8px, 1.1vh, 12px) clamp(13px, 1.2vw, 20px);
-    font-size: clamp(7px, 0.55vw, 9px);
-    border-color: rgba(242, 233, 216, 0.28);
-    color: rgba(242, 233, 216, 0.75);
+    padding: clamp(10px, 1.3vh, 15px) clamp(16px, 1.5vw, 28px);
+    min-height: clamp(38px, 4.2vh, 50px);
+    font-size: clamp(10px, 0.72vw, 14px);
+    border-color: rgba(242, 233, 216, 0.38);
+    color: rgba(242, 233, 216, 0.85);
 }
 
 .boton--fantasma:hover {
@@ -421,18 +427,24 @@ body {
 
 .pista {
     display: flex;
-    align-items: center;
-    gap: 9px;
-    font-size: clamp(7px, 0.58vw, 10px);
+    align-items: flex-start;
+    gap: 10px;
+    /* Columna angosta: el collage de fragmentos ocupa el resto de la fila,
+       así el texto no queda debajo de una obra. */
+    max-width: clamp(140px, 10vw, 200px);
+    font-size: clamp(10px, 0.8vw, 15px);
     font-weight: 700;
-    letter-spacing: 0.26em;
+    letter-spacing: 0.16em;
+    line-height: 1.35;
     text-transform: uppercase;
-    color: rgba(242, 233, 216, 0.45);
+    color: rgba(242, 233, 216, 0.72);
 }
 
 .pulso {
-    width: 6px;
-    height: 6px;
+    flex: none;
+    width: 9px;
+    height: 9px;
+    margin-top: 0.42em;
     border-radius: 50%;
     background-color: var(--terracota);
     animation: pulso 2.8s ease-out infinite;
@@ -950,11 +962,101 @@ body {
 }
 
 .carga-texto {
-    font-size: clamp(8px, 0.66vw, 11px);
+    font-size: clamp(12px, 0.9vw, 17px);
     font-weight: 700;
-    letter-spacing: 0.4em;
+    letter-spacing: 0.36em;
     text-transform: uppercase;
-    color: rgba(242, 233, 216, 0.82);
+    color: rgba(242, 233, 216, 0.9);
+    text-align: center;
+}
+
+/* =========================================================
+   AVISO DEL GESTO DE SALIDA (PULGAR HACIA ABAJO)
+   Flotante y compacto: no tapa el lienzo ni el pie, y vive por
+   encima del canvas de p5.js y del recuadro de cámara.
+========================================================= */
+
+.aviso-salida {
+    position: fixed;
+    left: 50%;
+    bottom: clamp(96px, 15vh, 190px);
+    z-index: 8;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    padding: clamp(14px, 1.7vh, 22px) clamp(24px, 2.2vw, 40px) clamp(12px, 1.4vh, 18px);
+    border: 1px solid rgba(198, 107, 78, 0.55);
+    border-radius: 3px;
+    background-color: rgba(8, 10, 16, 0.84);
+    box-shadow:
+        0 28px 64px rgba(0, 0, 0, 0.55),
+        inset 0 0 0 1px rgba(242, 233, 216, 0.05);
+    color: var(--marfil);
+    opacity: 0;
+    transform: translate(-50%, 16px) scale(0.96);
+    pointer-events: none;
+    transition: opacity 0.22s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.aviso-salida.activo {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+}
+
+.aviso-salida__marca {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(70px, 7vw, 116px);
+    height: clamp(70px, 7vw, 116px);
+    margin-bottom: clamp(2px, 0.4vh, 6px);
+}
+
+.aviso-salida__anillo {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+}
+
+.aviso-salida__riel,
+.aviso-salida__progreso {
+    fill: none;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+}
+
+.aviso-salida__riel {
+    stroke: rgba(242, 233, 216, 0.14);
+}
+
+.aviso-salida__progreso {
+    stroke: var(--terracota);
+    stroke-dasharray: 289;
+    stroke-dashoffset: 289;
+}
+
+.aviso-salida__icono {
+    font-size: clamp(26px, 2.5vw, 44px);
+    line-height: 1;
+}
+
+.aviso-salida__titulo {
+    font-family: var(--sans);
+    font-size: clamp(16px, 1.5vw, 29px);
+    font-weight: 700;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--marfil);
+}
+
+.aviso-salida__destino {
+    font-family: var(--sans);
+    font-size: clamp(10px, 0.85vw, 15px);
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--terracota);
 }
 
 .transicion {
@@ -1028,9 +1130,9 @@ body {
     align-items: center;
     gap: 10px;
     margin-top: 4px;
-    color: rgba(242, 233, 216, 0.6);
-    font-size: clamp(9px, 0.8vw, 13px);
-    letter-spacing: 0.18em;
+    color: rgba(242, 233, 216, 0.68);
+    font-size: clamp(10px, 0.82vw, 15px);
+    letter-spacing: 0.16em;
     text-transform: uppercase;
 }
 
@@ -1041,24 +1143,26 @@ body {
 .estado-experiencia {
     margin-top: 6px;
     color: var(--terracota);
-    font-size: clamp(7px, 0.55vw, 9px);
-    letter-spacing: 0.18em;
+    font-size: clamp(10px, 0.82vw, 15px);
+    letter-spacing: 0.14em;
     text-transform: uppercase;
 }
 
 .controles {
     display: flex;
-    gap: 10px;
+    gap: clamp(8px, 0.9vw, 14px);
 }
 
 .controles button {
     background-color: transparent;
     color: var(--marfil);
-    border: 1px solid rgba(242, 233, 216, 0.35);
-    padding: 10px 18px;
+    border: 1px solid rgba(242, 233, 216, 0.5);
+    padding: clamp(11px, 1.5vh, 16px) clamp(18px, 1.6vw, 28px);
+    min-height: clamp(40px, 4.6vh, 54px);
     font-family: var(--sans);
-    font-size: 10px;
-    letter-spacing: 0.16em;
+    font-size: clamp(11px, 0.8vw, 15px);
+    font-weight: 700;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     cursor: pointer;
 }
@@ -1140,36 +1244,59 @@ body {
     flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
-    gap: clamp(8px, 1.5vw, 22px);
+    gap: clamp(12px, 1.6vw, 32px);
 }
 
 .pose {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
-    min-width: clamp(44px, 4.6vw, 76px);
+    gap: 3px;
+    min-width: clamp(72px, 7vw, 140px);
     text-align: center;
 }
 
 .pose-icono {
-    font-size: clamp(13px, 1.4vw, 19px);
+    font-size: clamp(22px, 2.1vw, 40px);
     line-height: 1.1;
 }
 
 .pose-nombre {
     color: var(--marfil);
-    font-size: clamp(6.5px, 0.5vw, 8px);
+    font-size: clamp(10px, 0.8vw, 15px);
     font-weight: 700;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
 }
 
 .pose-desc {
     color: var(--terracota);
-    font-size: clamp(5.5px, 0.42vw, 7px);
-    letter-spacing: 0.12em;
+    font-size: clamp(9px, 0.72vw, 13px);
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    line-height: 1.25;
+}
+
+/* Indicador del gesto universal de salida. Misma identidad y misma posición
+   relativa en todos los pies: marco propio para distinguirlo de la leyenda
+   de creación, y reacción visual cuando el gesto se detecta. */
+.pose--salida {
+    padding: clamp(4px, 0.5vh, 7px) clamp(8px, 0.8vw, 15px);
+    border: 1px solid rgba(198, 107, 78, 0.4);
+    border-radius: 3px;
+    background-color: rgba(198, 107, 78, 0.08);
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.pose--salida.activa {
+    border-color: rgba(198, 107, 78, 0.95);
+    background-color: rgba(198, 107, 78, 0.26);
+}
+
+/* En la bienvenida el gesto todavía no tiene destino: se muestra atenuado
+   para no competir con el mensaje principal. */
+.pose--atenuada {
+    opacity: 0.55;
 }
 
 /* Durante la experiencia, el canvas de cámara de handpose.js se aloja en el
@@ -1347,6 +1474,7 @@ canvas.p5Canvas {
 
     .pista {
         flex-wrap: wrap;
+        max-width: none;
         letter-spacing: 0.16em;
         line-height: 1.7;
     }
@@ -1453,6 +1581,70 @@ canvas.p5Canvas {
     .pie-nota {
         display: none;
     }
+
+    /* Vista de bolsillo: la leyenda se achica pero sigue legible. La
+       instalación real es 1920 x 1080. */
+    .pie {
+        gap: 8px;
+        letter-spacing: 0.14em;
+    }
+
+    .poses {
+        gap: 8px;
+    }
+
+    .pose {
+        min-width: 52px;
+    }
+
+    .poses--pie .pose {
+        min-width: 46px;
+    }
+
+    .pose-icono {
+        font-size: 20px;
+    }
+
+    .pose-nombre {
+        font-size: 9px;
+        letter-spacing: 0.1em;
+    }
+
+    .pose-desc {
+        font-size: 8px;
+        letter-spacing: 0.04em;
+    }
+
+    .pose--salida {
+        padding: 3px 7px;
+    }
+
+    .caja-camara {
+        width: 84px;
+    }
+
+    .controles {
+        gap: 6px;
+    }
+
+    .controles button {
+        padding: 8px 12px;
+        min-height: 34px;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+    }
+
+    .boton {
+        min-height: 44px;
+        padding: 12px 20px;
+        font-size: 11px;
+    }
+
+    .boton--fantasma {
+        min-height: 36px;
+        padding: 9px 14px;
+        font-size: 10px;
+    }
 }
 
 /* =========================================================
@@ -1474,7 +1666,8 @@ canvas.p5Canvas {
     }
 
     .transicion,
-    .carga {
+    .carga,
+    .aviso-salida {
         transition: none;
     }
 }
