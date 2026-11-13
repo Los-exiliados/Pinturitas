@@ -268,9 +268,11 @@ function alIniciarGesto(evento) {
 // --- Regreso: pulgar arriba ---------------------------------------------
 //
 // El pulgar sostenido vuelve a la pantalla anterior desde cualquier pantalla
-// que tenga "volver". En la experiencia se usa el mismo cierre que el botón
-// Salir, para liberar cámara y motor. La bienvenida no tiene regreso: ahí el
-// puño sigue siendo la entrada a la galería.
+// que tenga "volver". La experiencia queda afuera a propósito: ahí el puño
+// cerrado pertenece a la obra (atraer partículas) y un pulgar arriba natural
+// mientras se sostiene el puño no puede sacarte de la obra; la salida queda
+// en el botón Salir. La bienvenida tampoco tiene regreso: ahí el puño sigue
+// siendo la entrada a la galería.
 
 const REGRESOS = {
     galeria: {
@@ -280,10 +282,6 @@ const REGRESOS = {
     instrucciones: {
         destino: "galeria",
         texto: "Gesto reconocido · volviendo a la galería",
-    },
-    experiencia: {
-        salir: true,
-        texto: "Gesto reconocido · saliendo de la obra",
     },
     finalizado: {
         destino: "galeria",
@@ -355,22 +353,6 @@ function completarRegreso() {
 
     window.setTimeout(() => {
         detenerRegreso();
-
-        if (objetivo && objetivo.salir) {
-            if (typeof Gamelogic !== "undefined" && typeof Gamelogic.salir === "function") {
-                Gamelogic.salir();
-            } else {
-                transicionHacia("galeria");
-            }
-
-            // salir() no devuelve su promesa: se libera el gesto tras la
-            // transición para no encadenar dos regresos seguidos.
-            window.setTimeout(() => {
-                regreso.listo = false;
-            }, 720);
-            return;
-        }
-
         transicionHacia((objetivo && objetivo.destino) || "inicio").then(() => {
             regreso.listo = false;
         });

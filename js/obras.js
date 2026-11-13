@@ -19,6 +19,12 @@
 // - `radio` es la fracción del lado menor de la imagen.
 // - `efecto` es "remolino", "empujar" o "estrella"; `fuerza` su intensidad.
 // - `act` arranca en 0 y es el motor quien la suaviza en runtime.
+//
+// Los cuerpos celestes iluminables se definen en el campo `cuerpos`:
+//   { nombre, x, y, radio }
+// - `x` e `y` están en PÍXELES de la imagen original (no normalizados).
+// - `radio` delimita la zona visual del resplandor, también en píxeles.
+// - No son zonas de selección: la pinza controla todos los cuerpos a la vez.
 
 const CatalogoObras = [
     {
@@ -28,6 +34,12 @@ const CatalogoObras = [
         anio: 1889,
         tema: "noche",
         archivo: "obras/noche-estrellada.jpg",
+        cuerpos: [
+            { nombre: "luna creciente", x: 1505, y: 180, radio: 130 },
+            { nombre: "estrella 1", x: 85, y: 289, radio: 58 },
+            { nombre: "estrella 2", x: 724, y: 545, radio: 72 },
+            { nombre: "estrella 3", x: 583, y: 181, radio: 60 },
+        ],
         zonas: [
             {
                 nombre: "remolino grande",

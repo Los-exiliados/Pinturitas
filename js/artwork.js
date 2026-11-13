@@ -4,9 +4,16 @@
 // de p5.js en modo instancia con WEBGL: una malla texturizada de 60×40 que
 // permite deformaciones localizadas por zona.
 //
-// Interacciones (se suman por etapas):
+// Interacciones:
 //   - Índice extendido: los remolinos giran sobre sí mismos como un molino
 //     de viento, con arranque y freno suaves.
+//   - Paz: lluvia de meteoritos que rebotan dentro del lienzo.
+//   - Pinza: mientras está cerrada enciende el resplandor de los cuerpos
+//     celestes de la obra (todos a la vez); al soltar, el brillo adicional
+//     desaparece con un fundido suave y vuelve la pintura original.
+//   - Viento: la palma abierta en movimiento horizontal desplaza las
+//     pinceladas del cielo en esa dirección; al detenerse (o perderse la
+//     mano), las pinceladas vuelven suavemente a su lugar.
 //
 // Modo DEBUG (window.DEBUG = true): dibuja el círculo de cada zona de
 // remolino y permite hacer clic sobre la pintura para leer coordenadas
@@ -18,7 +25,7 @@
 // Interfaz publicada: el global `Artwork` con:
 //   - montar(contenedor): crea el lienzo p5 dentro del nodo indicado.
 //   - cargar(obra): carga una obra del catálogo (imagen + zonas).
-//   - actualizar(estado): recibe el estado por frame ({ molino: boolean }).
+//   - actualizar(estado): recibe el estado por frame ({ molino, paz, manos }).
 //   - destruir(): quita el lienzo y libera la instancia p5.
 
 const Artwork = (function () {
@@ -28,19 +35,13 @@ const Artwork = (function () {
     const ROWS = 40;
     const MOLINO_VELOCIDAD = 2.4; // radianes por segundo en giro pleno
     const REVERTIR_MS = 7000; // sin manos: revertir los efectos tras este tiempo
-    const VIDA_TRAZO = 3; // segundos que dura una pincelada
-    const MAX_TRAZOS = 420; // tope de segmentos de pincelada
-    const MAX_PARTICULAS = 400; // tope de partículas
     const MAX_METEOROS = 60; // tope de meteoros simultáneos de la paz
 
-    // Colores neón de las partículas de carga y explosión.
-    const PALETA_PARTICULAS = [
-        [0, 255, 255], // cian
-        [255, 0, 200], // magenta
-        [120, 255, 120], // verde neón
-        [255, 240, 80], // amarillo
-        [90, 160, 255], // azul eléctrico
-    ];
+    // Viento: desplazamiento horizontal de las pinceladas del cielo.
+    const VIENTO_ESCALA = 1400; // px de imagen por unidad de velocidad de la palma
+    const VIENTO_MAX = 80; // tope de desplazamiento en px de imagen
+    const VIENTO_SUAVIDAD = 4; // acercamiento al objetivo (1/s)
+    const VIENTO_HORIZONTE = 0.66; // debajo de esta fracción del alto no hay viento
 
     // Paletas de los meteoritos: alternan entre el amarillo cálido y el
     // azul de la noche de la obra.
@@ -69,17 +70,9 @@ const Artwork = (function () {
     let zonasActivas = [];
     let solicitudId = 0;
 
-    const trazos = [];
-    const particulas = [];
     const meteoros = [];
     let lluviaAcumulador = 0;
     let ultimaPaz = 0; // última vez que se vio la paz (para el margen de 5 s)
-    let palmaPrevia = true; // para detectar la apertura de la mano (explosión)
-    let puñoPrevio = false; // para detectar el cierre del puño (ráfaga de carga)
-    let ultimaExplosion = 0; // instante de la última explosión (ms)
-    let oscuridad = 0; // oscurecimiento del fondo mientras carga
-    let cargaAcumulador = 0; // ritmo de aparición de partículas de carga
-    let ultimasPalmas = [];
     let ultimaEntrada = null;
     let ultimoTiempoEfectos = 0;
 
@@ -90,6 +83,13 @@ const Artwork = (function () {
     let fase = 0;
     let velocidad = 0;
     let ultimoTiempo = 0;
+    let vientoActual = 0; // desplazamiento horizontal suavizado (px de imagen)
+
+    // Resplandor de los cuerpos celestes (la pinza cerrada lo enciende).
+    let cuerposActivos = [];
+    let imagenResplandor = null; // pintura con el resplandor horneado
+    let iluminacion = 0; // 0 = original, 1 = resplandor completo
+    let objetivoIluminacion = 0;
 
     function crearSketch() {
         return function (p) {
@@ -147,6 +147,29 @@ const Artwork = (function () {
                         desenrollando = Math.abs(objetivoFase - fase) > 0.02;
                     }
 
+                    // Resplandor de los cuerpos celestes: fundido suave hacia
+                    // el objetivo que deja la pinza (sin manos, se conserva).
+                    iluminacion += (objetivoIluminacion - iluminacion) * Math.min(1, dt * 3);
+                    if (Math.abs(objetivoIluminacion - iluminacion) < 0.002) {
+                        iluminacion = objetivoIluminacion;
+                    }
+
+                    // Viento: la velocidad de la palma abierta define el
+                    // desplazamiento; al detenerse o perderse la mano, el
+                    // objetivo es 0 y las pinceladas vuelven solas.
+                    const velocidadViento =
+                        ultimaEntrada && ultimaEntrada.vientoManos > 0
+                            ? ultimaEntrada.vientoVelocidad
+                            : 0;
+                    const objetivoViento = Math.max(
+                        -VIENTO_MAX,
+                        Math.min(VIENTO_MAX, velocidadViento * VIENTO_ESCALA)
+                    );
+                    vientoActual += (objetivoViento - vientoActual) * Math.min(1, dt * VIENTO_SUAVIDAD);
+                    if (Math.abs(objetivoViento - vientoActual) < 0.1) {
+                        vientoActual = objetivoViento;
+                    }
+
                     if (!imagen || !dimensiones) return;
                     dibujarMalla(p);
 
@@ -172,7 +195,7 @@ const Artwork = (function () {
         };
     }
 
-    // --- Capa de efectos: pinceladas de la palma ---------------------------
+    // --- Capa de efectos: meteoritos ---------------------------------------
 
     function crearSketchEfectos() {
         return function (p) {
@@ -198,10 +221,7 @@ const Artwork = (function () {
                     const revertir = ahora - ultimoConMano > REVERTIR_MS;
                     actualizarEfectos(ultimaEntrada, dt, revertir);
 
-                    dibujarOscurecimiento(p);
-                    dibujarTrazos(p);
                     dibujarMeteoros(p);
-                    dibujarParticulas(p);
                 } catch (error) {
                     // Un frame con error no debe apagar la capa de efectos.
                     console.error("Error en la capa de efectos:", error);
@@ -218,95 +238,9 @@ const Artwork = (function () {
         };
     }
 
-    // Color de la pintura en un punto, con contraste y saturación realzados:
-    // cada canal se aleja del gris medio para que la pincelada resalte.
-    function colorMuestra(nx, ny) {
-        try {
-            const px = Math.round(Math.min(1, Math.max(0, nx)) * (imagen.width - 1));
-            const py = Math.round(Math.min(1, Math.max(0, ny)) * (imagen.height - 1));
-            const c = imagen.get(px, py);
-            return [
-                canal(128 + (c[0] - 128) * 1.9 + 18),
-                canal(128 + (c[1] - 128) * 1.9 + 16),
-                canal(128 + (c[2] - 128) * 1.9 + 14),
-            ];
-        } catch (error) {
-            return [170, 200, 255];
-        }
-    }
-
-    function canal(valor) {
-        return Math.max(0, Math.min(255, Math.round(valor)));
-    }
-
-    // Mezcla el color hacia el blanco: la cerda central y las partículas.
-    function aclarar(color) {
-        return [
-            canal(color[0] + (255 - color[0]) * 0.65),
-            canal(color[1] + (255 - color[1]) * 0.65),
-            canal(color[2] + (255 - color[2]) * 0.65),
-        ];
-    }
-
-    // Posición de aparición de las partículas de carga: directamente en el
-    // centro de la imagen, con un jitter pequeño.
-    function posicionCarga() {
-        return {
-            x: 0.5 + (Math.random() - 0.5) * 0.04,
-            y: 0.5 + (Math.random() - 0.5) * 0.04,
-        };
-    }
-
     function actualizarEfectos(estado, dt, revertir) {
-        const palmas = estado && Array.isArray(estado.palmas) ? estado.palmas : [];
-
-        // Segmentos nuevos y partículas: la palma abierta pinta siguiendo
-        // su trayectoria y suelta partículas alrededor del recorrido.
-        for (let i = 0; i < palmas.length; i += 1) {
-            const mano = palmas[i];
-            const previo = ultimasPalmas[i];
-
-            if (mano.posture === "open_palm" && previo) {
-                const desplazamiento = Math.hypot(mano.x - previo.x, mano.y - previo.y);
-                if (desplazamiento >= 0.012 && desplazamiento < 0.2) {
-                    const color = colorMuestra(mano.x, mano.y);
-                    trazos.push({
-                        x1: previo.x,
-                        y1: previo.y,
-                        x2: mano.x,
-                        y2: mano.y,
-                        color,
-                        core: aclarar(color),
-                        grosor: 0.9 + Math.random() * 0.6,
-                        vida: VIDA_TRAZO,
-                    });
-                    if (trazos.length > MAX_TRAZOS) trazos.shift();
-                }
-
-                // Partículas: cuantas más rápido se mueve la mano, más salen.
-                if (desplazamiento > 0.004) {
-                    const cantidad = Math.min(5, 1 + Math.floor(desplazamiento * 30));
-                    for (let n = 0; n < cantidad; n += 1) {
-                        particulas.push({
-                            x: mano.x + (Math.random() - 0.5) * 0.02,
-                            y: mano.y + (Math.random() - 0.5) * 0.02,
-                            vx: (Math.random() - 0.5) * 0.09,
-                            vy: (Math.random() - 0.5) * 0.09 - 0.015,
-                            vida: 0.9 + Math.random() * 0.7,
-                            tamaño: 0.9 + Math.random() * 1.0,
-                            color: aclarar(colorMuestra(mano.x, mano.y)),
-                        });
-                    }
-                }
-            }
-
-            ultimasPalmas[i] =
-                mano.posture === "open_palm" ? { x: mano.x, y: mano.y } : null;
-        }
-        ultimasPalmas.length = palmas.length;
-
         // --- Lluvia de meteoritos: la paz los dispara por toda la obra -----
-        const hayPaz = palmas.some((mano) => mano.posture === "peace");
+        const hayPaz = !!(estado && estado.paz);
         const ahoraMs = performance.now();
 
         if (hayPaz) ultimaPaz = ahoraMs;
@@ -358,192 +292,6 @@ const Artwork = (function () {
 
             if (meteorito.vida <= 0) meteoros.splice(i, 1);
         }
-
-        if (particulas.length > MAX_PARTICULAS) {
-            particulas.splice(0, particulas.length - MAX_PARTICULAS);
-        }
-
-        // --- Carga: al cerrar el puño, una gran cantidad de partículas neón
-        // se concentra en el centro y el fondo se oscurece casi a negro.
-        const hayPuño = palmas.some((mano) => mano.posture === "fist");
-        const hayPalma = palmas.some((mano) => mano.posture === "open_palm");
-        const ahoraEfectos = performance.now();
-
-        if (hayPuño) {
-            // Ráfaga inicial al cerrar el puño.
-            if (!puñoPrevio) {
-                for (let n = 0; n < 30; n += 1) {
-                    const posicion = posicionCarga();
-                    particulas.push({
-                        x: posicion.x,
-                        y: posicion.y,
-                        vx: (0.5 - posicion.x) * 0.4,
-                        vy: (0.5 - posicion.y) * 0.4,
-                        vida: 4 + Math.random() * 2,
-                        tamaño: 1.0 + Math.random() * 1.2,
-                        color: PALETA_PARTICULAS[Math.floor(Math.random() * PALETA_PARTICULAS.length)],
-                        ambiente: false,
-                    });
-                }
-            }
-            // Flujo continuo mientras el puño está cerrado.
-            if (!revertir) {
-                cargaAcumulador += 24 * dt;
-                while (cargaAcumulador >= 1) {
-                    cargaAcumulador -= 1;
-                    const posicion = posicionCarga();
-                    particulas.push({
-                        x: posicion.x,
-                        y: posicion.y,
-                        vx: (0.5 - posicion.x) * 0.4,
-                        vy: (0.5 - posicion.y) * 0.4,
-                        vida: 4 + Math.random() * 2,
-                        tamaño: 1.0 + Math.random() * 1.2,
-                        color: PALETA_PARTICULAS[Math.floor(Math.random() * PALETA_PARTICULAS.length)],
-                        ambiente: false,
-                    });
-                }
-            }
-
-            // El fondo se oscurece mientras carga.
-            oscuridad += (1 - oscuridad) * Math.min(1, dt * 2.5);
-        } else {
-            // Sin puño: el fondo se ilumina de nuevo, lento (~5 segundos).
-            oscuridad = Math.max(0, oscuridad - dt * 0.2);
-        }
-        puñoPrevio = hayPuño;
-
-        // --- Explosión: al ABRIR la mano, las partículas salen disparadas
-        // hacia todas las direcciones y desaparecen; el fondo se ilumina.
-        if (hayPalma && !palmaPrevia && ahoraEfectos - ultimaExplosion > 800) {
-            ultimaExplosion = ahoraEfectos;
-            for (const par of particulas) {
-                const dx = par.x - 0.5;
-                const dy = par.y - 0.5;
-                const d = Math.hypot(dx, dy) || 1e-4;
-                const fuerza = 0.35 + Math.random() * 0.45;
-                par.vx += (dx / d) * fuerza + (Math.random() - 0.5) * 0.6;
-                par.vy += (dy / d) * fuerza + (Math.random() - 0.5) * 0.6;
-                // Vida corta: desaparecen mientras vuelan.
-                par.vida = Math.min(par.vida, 0.8 + Math.random() * 0.7);
-            }
-            for (let n = 0; n < 30; n += 1) {
-                const angulo = Math.random() * Math.PI * 2;
-                const velocidad = 0.25 + Math.random() * 0.55;
-                particulas.push({
-                    x: 0.5 + (Math.random() - 0.5) * 0.02,
-                    y: 0.5 + (Math.random() - 0.5) * 0.02,
-                    vx: Math.cos(angulo) * velocidad,
-                    vy: Math.sin(angulo) * velocidad,
-                    vida: 0.7 + Math.random() * 0.7,
-                    tamaño: 1.4 + Math.random() * 1.2,
-                    color: PALETA_PARTICULAS[Math.floor(Math.random() * PALETA_PARTICULAS.length)],
-                    ambiente: false,
-                });
-            }
-        }
-        palmaPrevia = hayPalma;
-
-        // Envejecimiento; mientras carga no envejecen (la bola crece); se
-        // acelera durante el revertido global.
-        const desgaste = revertir ? dt * 3 : hayPuño ? 0 : dt;
-        for (let i = trazos.length - 1; i >= 0; i -= 1) {
-            trazos[i].vida -= desgaste;
-            if (trazos[i].vida <= 0) trazos.splice(i, 1);
-        }
-        for (let i = particulas.length - 1; i >= 0; i -= 1) {
-            const par = particulas[i];
-            par.vida -= desgaste;
-
-            // Abrir / cerrar la mano: el puño concentra las partículas en el
-            // centro de la imagen; la palma abierta las esparce desde el
-            // centro hacia todo el lugar.
-            for (const mano of palmas) {
-                if (mano.posture === "fist") {
-                    const dx = 0.5 - par.x;
-                    const dy = 0.5 - par.y;
-                    const d2 = dx * dx + dy * dy + 0.001;
-                    par.vx += (dx / d2) * 0.0022;
-                    par.vy += (dy / d2) * 0.0022;
-                } else if (mano.posture === "open_palm") {
-                    const dx = par.x - 0.5;
-                    const dy = par.y - 0.5;
-                    const d = Math.hypot(dx, dy) || 1e-4;
-                    const f = Math.max(0, 1 - d) * 0.25;
-                    par.vx += (dx / d) * f + (Math.random() - 0.5) * 0.15;
-                    par.vy += (dy / d) * f + (Math.random() - 0.5) * 0.15;
-                }
-            }
-
-            par.x += par.vx * dt;
-            par.y += par.vy * dt;
-
-            // El límite de las partículas es el tamaño de la imagen:
-            // rebotan suavemente en los bordes.
-            if (par.x < 0) { par.x = -par.x; par.vx = Math.abs(par.vx) * 0.7; }
-            if (par.x > 1) { par.x = 2 - par.x; par.vx = -Math.abs(par.vx) * 0.7; }
-            if (par.y < 0) { par.y = -par.y; par.vy = Math.abs(par.vy) * 0.7; }
-            if (par.y > 1) { par.y = 2 - par.y; par.vy = -Math.abs(par.vy) * 0.7; }
-
-            par.vx *= 0.985;
-            par.vy *= 0.985;
-
-            if (par.vida <= 0) particulas.splice(i, 1);
-        }
-    }
-
-    // Oscurecimiento del fondo mientras las partículas cargan: llega a casi
-    // negro y se ilumina de nuevo solo al soltar el puño.
-    function dibujarOscurecimiento(p) {
-        if (oscuridad <= 0.001) return;
-        const vista = vistaPintura(p);
-        p.push();
-        p.noStroke();
-        // p5 usa alfa de 0 a 255: 0.88 * 255 ≈ 224 = casi negro.
-        p.fill(0, 0, 0, Math.min(224, oscuridad * 224));
-        p.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
-        p.pop();
-    }
-
-    function dibujarTrazos(p) {
-        if (trazos.length === 0) return;
-        const vista = vistaPintura(p);
-        const grosorBase = Math.min(18, vista.anchoDibujo * 0.012);
-
-        p.push();
-        p.drawingContext.lineCap = "round";
-
-        // Primera pasada: halo ancho y tenue (pincel cargado).
-        for (const trazo of trazos) {
-            const vida = Math.max(0, Math.min(1, trazo.vida / VIDA_TRAZO));
-            const a = aVista(trazo.x1, trazo.y1, p, vista);
-            const b = aVista(trazo.x2, trazo.y2, p, vista);
-            p.stroke(`rgba(${trazo.color[0]}, ${trazo.color[1]}, ${trazo.color[2]}, ${(vida * 0.3).toFixed(3)})`);
-            p.strokeWeight(trazo.grosor * grosorBase * 1.7);
-            p.line(a.x, a.y, b.x, b.y);
-        }
-
-        // Segunda pasada: cuerpo del pincel.
-        for (const trazo of trazos) {
-            const vida = Math.max(0, Math.min(1, trazo.vida / VIDA_TRAZO));
-            const a = aVista(trazo.x1, trazo.y1, p, vista);
-            const b = aVista(trazo.x2, trazo.y2, p, vista);
-            p.stroke(`rgba(${trazo.color[0]}, ${trazo.color[1]}, ${trazo.color[2]}, ${(vida * 0.55).toFixed(3)})`);
-            p.strokeWeight(trazo.grosor * grosorBase);
-            p.line(a.x, a.y, b.x, b.y);
-        }
-
-        // Tercera pasada: cerda central fina y clara.
-        for (const trazo of trazos) {
-            const vida = Math.max(0, Math.min(1, trazo.vida / VIDA_TRAZO));
-            const a = aVista(trazo.x1, trazo.y1, p, vista);
-            const b = aVista(trazo.x2, trazo.y2, p, vista);
-            p.stroke(`rgba(${trazo.core[0]}, ${trazo.core[1]}, ${trazo.core[2]}, ${(vida * 0.4).toFixed(3)})`);
-            p.strokeWeight(Math.max(1, trazo.grosor * grosorBase * 0.35));
-            p.line(a.x, a.y, b.x, b.y);
-        }
-
-        p.pop();
     }
 
     function dibujarMeteoros(p) {
@@ -590,27 +338,6 @@ const Artwork = (function () {
         }
 
         ctx.restore();
-    }
-
-    function dibujarParticulas(p) {
-        if (particulas.length === 0) return;
-        const vista = vistaPintura(p);
-        const escala = vista.anchoDibujo / 1600;
-
-        p.push();
-        p.noStroke();
-        p.drawingContext.shadowBlur = 14;
-        p.drawingContext.shadowColor = "rgba(255, 235, 190, 0.95)";
-
-        for (const par of particulas) {
-            const c = aVista(par.x, par.y, p, vista);
-            const alpha = Math.max(0, Math.min(1, par.vida / 1.2));
-            p.fill(`rgba(${par.color[0]}, ${par.color[1]}, ${par.color[2]}, ${alpha.toFixed(3)})`);
-            p.circle(c.x, c.y, Math.max(3, par.tamaño * 5.5 * escala));
-        }
-
-        p.drawingContext.shadowBlur = 0;
-        p.pop();
     }
 
     // --- Tamaño y geometría ------------------------------------------------
@@ -667,7 +394,39 @@ const Artwork = (function () {
             y = cy + dx * sin + dy * cos;
         }
 
+        // Viento: desplazamiento horizontal del cielo, suavizado por la
+        // máscara (cero sobre los cuerpos celestes y el paisaje).
+        if (vientoActual !== 0) {
+            x += vientoActual * mascaraViento(px, py);
+        }
+
         return { x, y };
+    }
+
+    // Peso del viento en un punto de la imagen (0 = protegido, 1 = cielo
+    // abierto). Excluye suavemente los cuerpos celestes (luna y estrellas) y
+    // el paisaje por debajo del horizonte, sin bordes duros.
+    function mascaraViento(px, py) {
+        let peso = 1;
+
+        for (const cuerpo of cuerposActivos) {
+            const dx = px - cuerpo.x;
+            const dy = py - cuerpo.y;
+            const radio = cuerpo.radio * 1.25;
+            const d2 = dx * dx + dy * dy;
+            if (d2 < radio * radio * 6.25) {
+                peso *= 1 - Math.exp(-(d2 / (radio * radio)) * 3);
+            }
+        }
+
+        const horizonte = VIENTO_HORIZONTE * dimensiones.alto;
+        const banda = 0.1 * dimensiones.alto;
+        if (py > horizonte - banda) {
+            const t = Math.min(1, Math.max(0, (py - (horizonte - banda)) / banda));
+            peso *= 1 - t;
+        }
+
+        return peso;
     }
 
     function dibujarMalla(p) {
@@ -675,19 +434,35 @@ const Artwork = (function () {
 
         p.noStroke();
         p.textureMode(p.NORMAL);
-        p.texture(imagen);
+
+        // Pasada base: la pintura original.
+        dibujarPasada(p, vista, imagen, 0);
+
+        // Pasada de resplandor: la misma malla (misma deformación) con la
+        // versión iluminada; el alpha del tint funde ambas y mantiene la
+        // alineación exacta con la pintura, incluidos los remolinos. Un
+        // offset mínimo de z evita el z-fighting entre las dos pasadas.
+        if (imagenResplandor && iluminacion > 0.002) {
+            p.tint(255, 255 * iluminacion);
+            dibujarPasada(p, vista, imagenResplandor, 0.5);
+            p.noTint();
+        }
+    }
+
+    function dibujarPasada(p, vista, textura, z) {
+        p.texture(textura);
 
         for (let j = 0; j < ROWS; j++) {
             p.beginShape(p.TRIANGLE_STRIP);
             for (let i = 0; i <= COLS; i++) {
-                emitirVertice(p, vista, i, j);
-                emitirVertice(p, vista, i, j + 1);
+                emitirVertice(p, vista, i, j, z);
+                emitirVertice(p, vista, i, j + 1, z);
             }
             p.endShape();
         }
     }
 
-    function emitirVertice(p, vista, i, j) {
+    function emitirVertice(p, vista, i, j, z) {
         const px = (i / COLS) * dimensiones.ancho;
         const py = (j / ROWS) * dimensiones.alto;
         const punto = deformar(px, py);
@@ -695,7 +470,44 @@ const Artwork = (function () {
         const x = punto.x * vista.fit - vista.anchoDibujo / 2;
         const y = punto.y * vista.fit - vista.altoDibujo / 2;
 
-        p.vertex(x, y, 0, i / COLS, j / ROWS);
+        p.vertex(x, y, z, i / COLS, j / ROWS);
+    }
+
+    // --- Resplandor de los cuerpos celestes --------------------------------
+    // Hornea en el propio espacio de la imagen una versión iluminada: la
+    // misma pintura con un resplandor cálido y aditivo (modo "screen")
+    // alrededor de cada cuerpo. Al usarla como textura de la misma malla, el
+    // brillo queda siempre alineado con la pintura (incluida la deformación
+    // de los remolinos) y no parece una capa superpuesta. No hay rellenos
+    // negros ni máscaras opacas: solo luz que se suma a la obra.
+    function crearVersionResplandor(cuerpos) {
+        if (!imagen || !sketchRef || cuerpos.length === 0) return null;
+
+        const g = sketchRef.createGraphics(imagen.width, imagen.height);
+        g.pixelDensity(1);
+        g.image(imagen, 0, 0);
+
+        const ctx = g.drawingContext;
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+
+        for (const cuerpo of cuerpos) {
+            const cx = cuerpo.x;
+            const cy = cuerpo.y;
+            const r = cuerpo.radio;
+
+            const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            grad.addColorStop(0, "rgba(255, 244, 200, 1)");
+            grad.addColorStop(0.35, "rgba(255, 222, 150, 0.75)");
+            grad.addColorStop(0.7, "rgba(255, 206, 120, 0.3)");
+            grad.addColorStop(1, "rgba(255, 200, 110, 0)");
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+        }
+
+        ctx.restore();
+        return g;
     }
 
     // --- Modo DEBUG -------------------------------------------------------
@@ -741,6 +553,10 @@ const Artwork = (function () {
             ? obra.zonas.map((zona) => ({ ...zona }))
             : [];
 
+        cuerposActivos = Array.isArray(obra.cuerpos)
+            ? obra.cuerpos.map((cuerpo) => ({ ...cuerpo }))
+            : [];
+
         // Estado fresco del molino en cada obra.
         molinoHasta = 0;
         ultimoConMano = performance.now();
@@ -748,19 +564,17 @@ const Artwork = (function () {
         desenrollando = false;
         fase = 0;
         velocidad = 0;
+        vientoActual = 0;
 
-        // Efectos de la palma: pizarra limpia.
-        trazos.length = 0;
-        particulas.length = 0;
+        // Resplandor: cada obra arranca con la pintura original.
+        iluminacion = 0;
+        objetivoIluminacion = 0;
+        imagenResplandor = null;
+
+        // Meteoritos: pizarra limpia.
         meteoros.length = 0;
         lluviaAcumulador = 0;
         ultimaPaz = 0;
-        palmaPrevia = true;
-        puñoPrevio = false;
-        ultimaExplosion = 0;
-        oscuridad = 0;
-        cargaAcumulador = 0;
-        ultimasPalmas = [];
         ultimaEntrada = null;
 
         if (!sketchRef) return;
@@ -773,6 +587,7 @@ const Artwork = (function () {
                 if (id !== solicitudId) return; // una carga más nueva ya ganó
                 imagen = cargada;
                 dimensiones = { ancho: cargada.width, alto: cargada.height };
+                imagenResplandor = crearVersionResplandor(cuerposActivos);
             },
             function () {
                 if (id !== solicitudId) return;
@@ -786,6 +601,11 @@ const Artwork = (function () {
         ultimaEntrada = estado;
         if (estado.manos > 0) {
             ultimoConMano = performance.now();
+
+            // La pinza manda sobre los cuatro cuerpos a la vez: cerrada
+            // enciende el resplandor, abierta lo apaga. Sin manos no se toca
+            // el objetivo: se conserva el último estado.
+            objetivoIluminacion = estado.pinzaCerrada ? 1 : 0;
         }
         if (estado.molino) {
             molinoHasta = performance.now() + 900;
@@ -819,23 +639,20 @@ const Artwork = (function () {
         dimensiones = null;
         obraActual = null;
         zonasActivas = [];
+        cuerposActivos = [];
+        imagenResplandor = null;
+        iluminacion = 0;
+        objetivoIluminacion = 0;
         molinoHasta = 0;
         ultimoConMano = 0;
         girando = false;
         desenrollando = false;
         fase = 0;
         velocidad = 0;
-        trazos.length = 0;
-        particulas.length = 0;
+        vientoActual = 0;
         meteoros.length = 0;
         lluviaAcumulador = 0;
         ultimaPaz = 0;
-        palmaPrevia = true;
-        puñoPrevio = false;
-        ultimaExplosion = 0;
-        oscuridad = 0;
-        cargaAcumulador = 0;
-        ultimasPalmas = [];
         ultimaEntrada = null;
         solicitudId += 1;
         ultimoTiempo = 0;
