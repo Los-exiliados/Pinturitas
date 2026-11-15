@@ -80,7 +80,6 @@ const Gamelogic = (function () {
             if (typeof Musica !== "undefined") Musica.iniciar();
             alojarCamara();
             mostrarDatosObra(obra);
-            mostrarPoses(obra);
             Artwork.montar(document.getElementById("contenedorLienzo"));
             Artwork.cargar(obra);
             arrancarBucle();
@@ -685,46 +684,12 @@ const Gamelogic = (function () {
         if (titulo) titulo.textContent = obra.titulo;
         if (autor) autor.textContent = obra.autor;
         if (anio) anio.textContent = String(obra.anio);
-        mostrarPoses(obra);
     }
 
-    // Arma el pie de poses según la obra abierta: cada pintura muestra solo
-    // las interacciones que tiene activas.
-    function mostrarPoses(obra) {
-        const contenedor = document.querySelector("#experiencia .poses");
-        if (!contenedor) return;
-
-        const poses =
-            Array.isArray(obra.poses) && obra.poses.length > 0
-                ? obra.poses
-                : [{ icono: "✊", nombre: "Puño", desc: "Iniciar" }];
-
-        const fragmento = document.createDocumentFragment();
-
-        for (const pose of poses) {
-            const tarjeta = document.createElement("div");
-            tarjeta.className = "pose";
-            tarjeta.title = pose.nombre;
-
-            const icono = document.createElement("span");
-            icono.className = "pose-icono";
-            icono.setAttribute("aria-hidden", "true");
-            icono.textContent = pose.icono;
-
-            const nombre = document.createElement("span");
-            nombre.className = "pose-nombre";
-            nombre.textContent = pose.nombre;
-
-            const desc = document.createElement("span");
-            desc.className = "pose-desc";
-            desc.textContent = pose.desc;
-
-            tarjeta.append(icono, nombre, desc);
-            fragmento.append(tarjeta);
-        }
-
-        contenedor.replaceChildren(fragmento);
-    }
+    // El pie de la experiencia no se arma acá: lo renderiza ui.js con
+    // `renderizarPosesExperiencia` a partir del contrato `gestos` de la obra.
+    // Si se rearmara desde este módulo, borraría el contenedor `#posesGestos`
+    // y el chip fijo de salida, y la leyenda de la obra nunca se vería.
     // Aloja el canvas de cámara de handpose.js dentro del recuadro del pie.
     // Ojo: p5 agrega ese canvas dentro del <main> de la bienvenida (que queda
     // oculto en otras pantallas), así que se lo busca en todo el documento y
