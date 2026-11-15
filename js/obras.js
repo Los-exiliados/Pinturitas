@@ -25,6 +25,12 @@
 // - `x` e `y` están en PÍXELES de la imagen original (no normalizados).
 // - `radio` delimita la zona visual del resplandor, también en píxeles.
 // - No son zonas de selección: la pinza controla todos los cuerpos a la vez.
+//
+// Las obras con interacciones propias declaran el módulo que las atiende en
+// el campo `efectos`, más sus anclajes en píxeles de la imagen original:
+//   efectos: "monet"
+//   sol: { x, y, radio }
+// Las obras sin `efectos` no ejecutan ningún código de interacción propio.
 
 const CatalogoObras = [
     {
@@ -127,6 +133,37 @@ const CatalogoObras = [
         anio: 1872,
         tema: "impresion",
         archivo: "obras/impresion-sol-naciente.jpg",
+        efectos: "monet",
+        // Coordenadas medidas sobre la imagen original (1600 × 1242).
+        sol: { x: 974, y: 384, radio: 28 },
+        // Línea del horizonte: separa el cielo del agua.
+        horizonte: 620,
+        // Barcos: región que se anima, en píxeles de la imagen.
+        barcos: [
+            { x: 216, y: 670, ancho: 130, alto: 52, fase: 0.0 },
+            { x: 388, y: 747, ancho: 172, alto: 62, fase: 1.9 },
+            { x: 688, y: 805, ancho: 165, alto: 145, fase: 3.4 },
+        ],
+        // Qué hace cada gesto en esta obra. El pie de la experiencia muestra
+        // estas descripciones; las obras sin `poses` conservan las suyas.
+        poses: {
+            indice: {
+                desc: "El atardecer",
+                titulo: "Índice extendido: el sol se pone detrás del horizonte y la escena anochece",
+            },
+            paz: {
+                desc: "El cielo se mueve",
+                titulo: "Dos dedos: las nubes y las corrientes de aire recorren el cielo",
+            },
+            pinza: {
+                desc: "Tormenta eléctrica",
+                titulo: "Pinza: diluvio, relámpagos y un mar agitado",
+            },
+            palma: {
+                desc: "El mar cobra vida",
+                titulo: "Palma abierta: olas continuas, el reflejo se quiebra y los barcos flotan",
+            },
+        },
         zonas: [],
     },
     {

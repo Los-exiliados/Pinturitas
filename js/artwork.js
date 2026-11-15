@@ -72,6 +72,10 @@ const Artwork = (function () {
     let dimensiones = null;
     let zonasActivas = [];
     let solicitudId = 0;
+    // La obra activa declara interacciones propias con `efectos` (hoy sólo
+    // Monet). Sin ese campo no se ejecuta nada del código nuevo y los efectos
+    // genéricos siguen funcionando igual que siempre.
+    let monetActivo = false;
 
     const meteoros = [];
     let lluviaAcumulador = 0;
@@ -161,8 +165,10 @@ const Artwork = (function () {
                     // Viento: la velocidad de la palma abierta define el
                     // desplazamiento; al detenerse o perderse la mano, el
                     // objetivo es 0 y las pinceladas vuelven solas.
+                    // En Monet la palma tiene su propia interacción: el viento
+                    // genérico de la malla no se aplica a esta obra.
                     const velocidadViento =
-                        ultimaEntrada && ultimaEntrada.vientoManos > 0
+                        !monetActivo && ultimaEntrada && ultimaEntrada.vientoManos > 0
                             ? ultimaEntrada.vientoVelocidad
                             : 0;
                     const objetivoViento = Math.max(
@@ -236,9 +242,21 @@ const Artwork = (function () {
                     if (!imagen || !dimensiones) return;
 
                     const revertir = ahora - ultimoConMano > REVERTIR_MS;
-                    actualizarEfectos(ultimaEntrada, dt, revertir);
 
-                    dibujarMeteoros(p);
+                    // Monet tiene sus propias interacciones: los meteoritos
+                    // genéricos de la paz no se dibujan en esta obra.
+                    if (!monetActivo) {
+                        actualizarEfectos(ultimaEntrada, dt, revertir);
+                        dibujarMeteoros(p);
+                    }
+
+                    // Interacción propia de la obra activa (hoy sólo Monet).
+                    // La capa de efectos está por encima de la malla, así que
+                    // el eclipse y el cursor se dibujan aquí, no en el WEBGL.
+                    if (monetActivo && typeof Monet !== "undefined") {
+                        Monet.actualizar(ultimaEntrada, dt);
+                        Monet.dibujar(p, vistaPintura(p));
+                    }
                 } catch (error) {
                     // Un frame con error no debe apagar la capa de efectos.
                     console.error("Error en la capa de efectos:", error);
@@ -587,6 +605,11 @@ const Artwork = (function () {
         if (!obra || !obra.archivo) return;
         obraActual = obra;
 
+        monetActivo = obra.efectos === "monet";
+        if (typeof Monet !== "undefined" && typeof Monet.limpiar === "function") {
+            Monet.limpiar();
+        }
+
         zonasActivas = Array.isArray(obra.zonas)
             ? obra.zonas.map((zona) => ({ ...zona }))
             : [];
@@ -627,6 +650,12 @@ const Artwork = (function () {
                 imagen = cargada;
                 dimensiones = { ancho: cargada.width, alto: cargada.height };
                 imagenResplandor = crearVersionResplandor(cuerposActivos);
+
+                // La interacción propia necesita los anclajes y la paleta de
+                // ESTA pintura: se configura recién con la imagen cargada.
+                if (monetActivo && typeof Monet !== "undefined" && typeof Monet.configurar === "function") {
+                    Monet.configurar(obra, dimensiones, cargada);
+                }
             },
             function () {
                 if (id !== solicitudId) return;
@@ -644,7 +673,11 @@ const Artwork = (function () {
             // La pinza manda sobre los cuatro cuerpos a la vez: cerrada
             // enciende el resplandor, abierta lo apaga. Sin manos no se toca
             // el objetivo: se conserva el último estado.
-            objetivoIluminacion = estado.pinzaCerrada ? 1 : 0;
+            // En Monet la pinza tiene su propia interacción: el oscurecido
+            // genérico de los cuerpos no se aplica a esta obra.
+            if (!monetActivo) {
+                objetivoIluminacion = estado.pinzaCerrada ? 1 : 0;
+            }
         }
         if (estado.molino) {
             molinoHasta = performance.now() + 900;
@@ -697,6 +730,10 @@ const Artwork = (function () {
         solicitudId += 1;
         ultimoTiempo = 0;
         ultimoTiempoEfectos = 0;
+        monetActivo = false;
+        if (typeof Monet !== "undefined" && typeof Monet.limpiar === "function") {
+            Monet.limpiar();
+        }
     }
 
     return { montar, cargar, actualizar, estadoMolino, dimensiones: obtenerDimensiones, destruir };
