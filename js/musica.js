@@ -16,6 +16,9 @@
 //   - preparar(): crea/reanuda el contexto de audio (sin sonido todavía).
 //   - iniciar(): arranca la música con fundido de entrada.
 //   - detener(): la apaga con fundido de salida.
+//   - tormenta(intensidad): nivel de lluvia (0 a 1) para las obras con
+//     tormenta.
+//   - trueno(): dispara el sonido de un trueno.
 
 const Musica = (function () {
     "use strict";
@@ -120,5 +123,75 @@ const Musica = (function () {
         }
     }
 
-    return { preparar, iniciar, detener };
+    // --- Tormenta: lluvia continua y truenos ------------------------------
+
+    let gananciaLluvia = null;
+
+    function crearBufferRuido(segundos) {
+        const buffer = contexto.createBuffer(
+            1,
+            Math.floor(contexto.sampleRate * segundos),
+            contexto.sampleRate
+        );
+        const datos = buffer.getChannelData(0);
+        for (let i = 0; i < datos.length; i += 1) {
+            datos[i] = Math.random() * 2 - 1;
+        }
+        return buffer;
+    }
+
+    function asegurarLluvia() {
+        if (gananciaLluvia) return;
+
+        const fuente = contexto.createBufferSource();
+        fuente.buffer = crearBufferRuido(2);
+        fuente.loop = true;
+
+        const filtro = contexto.createBiquadFilter();
+        filtro.type = "lowpass";
+        filtro.frequency.value = 900;
+
+        gananciaLluvia = contexto.createGain();
+        gananciaLluvia.gain.value = 0;
+
+        fuente.connect(filtro);
+        filtro.connect(gananciaLluvia);
+        gananciaLluvia.connect(maestro);
+        fuente.start();
+    }
+
+    // Nivel de lluvia según la intensidad de la tormenta (0 a 1).
+    function tormenta(intensidad) {
+        if (!asegurarContexto()) return;
+        asegurarLluvia();
+        const objetivo = Math.max(0, Math.min(1, intensidad)) * 0.35;
+        gananciaLluvia.gain.setTargetAtTime(objetivo, contexto.currentTime, 0.4);
+    }
+
+    // Trueno: ráfaga de ruido grave con caída larga.
+    function trueno() {
+        if (!asegurarContexto()) return;
+        const ahora = contexto.currentTime;
+
+        const fuente = contexto.createBufferSource();
+        fuente.buffer = crearBufferRuido(2);
+
+        const filtro = contexto.createBiquadFilter();
+        filtro.type = "lowpass";
+        filtro.frequency.setValueAtTime(420, ahora);
+        filtro.frequency.exponentialRampToValueAtTime(70, ahora + 1.4);
+
+        const ganancia = contexto.createGain();
+        ganancia.gain.setValueAtTime(0.9, ahora);
+        ganancia.gain.exponentialRampToValueAtTime(0.001, ahora + 2);
+
+        fuente.connect(filtro);
+        filtro.connect(ganancia);
+        ganancia.connect(maestro);
+
+        fuente.start(ahora);
+        fuente.stop(ahora + 2.2);
+    }
+
+    return { preparar, iniciar, detener, tormenta, trueno };
 })();
