@@ -25,6 +25,28 @@
 // - `x` e `y` están en PÍXELES de la imagen original (no normalizados).
 // - `radio` delimita la zona visual del resplandor, también en píxeles.
 // - No son zonas de selección: la pinza controla todos los cuerpos a la vez.
+//
+// Los gestos globales de la palma (viento) y de la paz (meteoritos) se
+// activan por obra con los campos `viento: true` y `meteoritos: true`.
+// Sin esos campos, el gesto queda inactivo en esa obra: así cada pintura
+// puede darle a los mismos gestos funciones distintas.
+//
+// Las tarjetas del pie de la experiencia se definen por obra en `poses`:
+//   { icono, nombre, desc }
+// El pie se arma según la obra abierta, mostrando solo las interacciones
+// que esa pintura tiene activas.
+//
+// La pinza puede tener dos funciones según la obra: si la obra define
+// `pinzaEfecto: "profundidad"`, la distancia entre los dedos controla la
+// profundidad visual; si no, la pinza cerrada enciende los `cuerpos`.
+//
+// El aura del personaje se define en `personaje`: un PNG del mismo tamaño
+// que la pintura con fondo transparente y solo el personaje visible. Al
+// hacer zoom, el personaje se ilumina y se genera un halo difuminado que
+// sigue su silueta.
+//
+// La palma puede cambiar la atmósfera de la obra con `palmEfecto:
+// "atmósfera"`: la altura de la mano recorre despejado, nublado y oscuro.
 
 const CatalogoObras = [
     {
@@ -34,6 +56,15 @@ const CatalogoObras = [
         anio: 1889,
         tema: "noche",
         archivo: "obras/noche-estrellada.jpg",
+        viento: true,
+        meteoritos: true,
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "✋", nombre: "Palma", desc: "Viento" },
+            { icono: "☝️", nombre: "Índice", desc: "Girar remolinos" },
+            { icono: "✌️", nombre: "Paz", desc: "Lluvia de meteoritos" },
+            { icono: "🤏", nombre: "Pinza", desc: "Iluminar la noche" },
+        ],
         cuerpos: [
             { nombre: "luna creciente", x: 1505, y: 180, radio: 130 },
             { nombre: "estrella 1", x: 85, y: 289, radio: 58 },
@@ -109,6 +140,22 @@ const CatalogoObras = [
         anio: 1818,
         tema: "caminante",
         archivo: "obras/el-caminante-sobre-el-mar-de-nubes.jpg",
+        pazEfecto: "tormenta",
+        pinzaEfecto: "profundidad",
+        palmEfecto: "atmosfera",
+        indiceEfecto: "despejar",
+        luces: [],
+        fondo: "obras/fondo-caminante.png",
+        baseAtmosfera: "obras/nofondo-caminante.png",
+        personaje: "obras/personaje-caminante.png",
+        despeje: "obras/caminante-relleno.png",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "☝️", nombre: "Índice", desc: "Despejar la niebla" },
+            { icono: "✋", nombre: "Palma", desc: "Atardecer / Anochecer" },
+            { icono: "✌️", nombre: "Paz", desc: "Tormenta" },
+            { icono: "🤏", nombre: "Pinza", desc: "Profundidad" },
+        ],
         zonas: [],
     },
     {
@@ -118,6 +165,9 @@ const CatalogoObras = [
         anio: 1831,
         tema: "ola",
         archivo: "obras/la-gran-ola-de-kanagawa.jpg",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+        ],
         zonas: [],
     },
     {
@@ -127,6 +177,9 @@ const CatalogoObras = [
         anio: 1872,
         tema: "impresion",
         archivo: "obras/impresion-sol-naciente.jpg",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+        ],
         zonas: [],
     },
     {
@@ -136,6 +189,9 @@ const CatalogoObras = [
         anio: 1931,
         tema: "persistencia",
         archivo: "obras/la-persistencia-de-la-memoria.jpg",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+        ],
         zonas: [],
     },
     {
@@ -145,6 +201,9 @@ const CatalogoObras = [
         anio: 1923,
         tema: "composicion",
         archivo: "obras/composicion-8.jpg",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+        ],
         zonas: [],
     },
 ];
