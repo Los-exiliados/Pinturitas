@@ -38,6 +38,10 @@ const Gamelogic = (function () {
     // alimenta el arrastre que despeja la niebla (El caminante).
     const indicesAnteriores = new Map();
 
+    // Posición previa del centro de cada mano en paz: mide el movimiento
+    // amplio que dispara las ondas cromáticas (Composición VIII).
+    const pazAnteriores = new Map();
+
     let obraActiva = null;
     let bucleActivo = false;
 
@@ -140,6 +144,13 @@ const Gamelogic = (function () {
             indiceVelocidad: 0,
             indiceX: null,
             indiceXManos: 0,
+            indiceY: null,
+            indiceYManos: 0,
+            pazVelocidad: 0,
+            pazVelManos: 0,
+            pazX: null,
+            pazY: null,
+            pazPosManos: 0,
             palmaX: null,
             palmaY: null,
             palmaManos: 0,
@@ -154,6 +165,7 @@ const Gamelogic = (function () {
         const usados = new Array(snapshots.length).fill(false);
         const palmasAbiertas = new Set();
         const indicesPuntos = new Set();
+        const pazEnPaz = new Set();
 
         for (const mano of hands) {
             if (!mano || !Array.isArray(mano.keypoints) || mano.keypoints.length < 21) continue;
@@ -181,19 +193,24 @@ const Gamelogic = (function () {
 
             // Índice en movimiento horizontal: arrastra la niebla. Se mide
             // el desplazamiento del centro de la mano entre frames (para la
-            // ondulación) y su posición horizontal (para el avance).
+            // ondulación) y su posición (para las ondas geométricas).
             if (posture === "point") {
                 indicesPuntos.add(mano);
 
                 const ids = [0, 5, 9, 13, 17];
                 let sumaX = 0;
+                let sumaY = 0;
                 for (const indice of ids) {
                     sumaX += mano.keypoints[indice].x;
+                    sumaY += mano.keypoints[indice].y;
                 }
                 const xIndice = sumaX / ids.length;
+                const yIndice = sumaY / ids.length;
 
                 estado.indiceX = (estado.indiceX || 0) + xIndice / Math.max(1, video.width);
                 estado.indiceXManos += 1;
+                estado.indiceY = (estado.indiceY || 0) + yIndice / Math.max(1, video.height);
+                estado.indiceYManos += 1;
 
                 const previa = indicesAnteriores.get(mano);
                 if (previa !== undefined) {
@@ -201,6 +218,34 @@ const Gamelogic = (function () {
                     estado.indiceManos += 1;
                 }
                 indicesAnteriores.set(mano, xIndice);
+            }
+
+            // Paz en movimiento: se mide el desplazamiento del centro de la
+            // mano entre frames para disparar ondas cromáticas.
+            if (posture === "peace") {
+                pazEnPaz.add(mano);
+
+                const idsPaz = [0, 5, 9, 13, 17];
+                let sumaXPaz = 0;
+                let sumaYPaz = 0;
+                for (const indicePaz of idsPaz) {
+                    sumaXPaz += mano.keypoints[indicePaz].x;
+                    sumaYPaz += mano.keypoints[indicePaz].y;
+                }
+                const xPaz = sumaXPaz / idsPaz.length;
+                const yPaz = sumaYPaz / idsPaz.length;
+
+                const previaPaz = pazAnteriores.get(mano);
+                if (previaPaz) {
+                    estado.pazVelocidad +=
+                        Math.hypot(xPaz - previaPaz.x, yPaz - previaPaz.y) / unidad;
+                    estado.pazVelManos += 1;
+                }
+                pazAnteriores.set(mano, { x: xPaz, y: yPaz });
+
+                estado.pazX = (estado.pazX || 0) + xPaz / Math.max(1, video.width);
+                estado.pazY = (estado.pazY || 0) + yPaz / Math.max(1, video.height);
+                estado.pazPosManos += 1;
             }
 
             if (snapshot && snapshot.pinzaCerrada) estado.pinzaCerrada = true;
@@ -261,6 +306,20 @@ const Gamelogic = (function () {
             if (!indicesPuntos.has(mano)) indicesAnteriores.delete(mano);
         }
 
+        // Y con las manos que dejaron de estar en paz.
+        for (const mano of Array.from(pazAnteriores.keys())) {
+            if (!pazEnPaz.has(mano)) pazAnteriores.delete(mano);
+        }
+
+        if (estado.pazVelManos > 0) {
+            estado.pazVelocidad /= estado.pazVelManos;
+        }
+
+        if (estado.pazPosManos > 0) {
+            estado.pazX /= estado.pazPosManos;
+            estado.pazY /= estado.pazPosManos;
+        }
+
         if (estado.vientoManos > 0) {
             estado.vientoVelocidad /= estado.vientoManos;
         }
@@ -271,6 +330,10 @@ const Gamelogic = (function () {
 
         if (estado.indiceXManos > 0) {
             estado.indiceX /= estado.indiceXManos;
+        }
+
+        if (estado.indiceYManos > 0) {
+            estado.indiceY /= estado.indiceYManos;
         }
 
         if (estado.palmaManos > 0) {
@@ -393,35 +456,43 @@ const Gamelogic = (function () {
                 ? "Tormenta"
                 : obra && obra.pazEfecto === "ojos"
                     ? "Cerrar los ojos"
-                    : obra && obra.meteoritos
-                        ? "Lluvia de meteoritos"
-                        : null;
+                    : obra && obra.pazEfecto === "croma"
+                        ? "Onda cromática"
+                        : obra && obra.meteoritos
+                            ? "Lluvia de meteoritos"
+                            : null;
         const nombrePinza =
             obra && obra.pinzaEfecto === "profundidad"
                 ? "Profundidad"
                 : obra && obra.pinzaEfecto === "derretir"
                     ? "Derretir los relojes"
-                    : obra && Array.isArray(obra.cuerpos) && obra.cuerpos.length > 0
-                        ? "Iluminar"
-                        : null;
+                    : obra && obra.pinzaEfecto === "lluvia"
+                        ? "Lluvia y colisión"
+                        : obra && Array.isArray(obra.cuerpos) && obra.cuerpos.length > 0
+                            ? "Iluminar"
+                            : null;
         const nombrePalma =
             obra && obra.palmEfecto === "atmosfera"
                 ? "Atardecer / Anochecer"
                 : obra && obra.palmEfecto === "sueno"
                     ? "Universo onírico"
-                    : obra && obra.viento
-                        ? "Viento"
-                        : null;
+                    : obra && obra.palmEfecto === "explotar"
+                        ? "Explosión geométrica"
+                        : obra && obra.viento
+                            ? "Viento"
+                            : null;
         const nombreIndice =
             obra && obra.indiceEfecto === "disolver"
                 ? "Multiverso"
-                : obra && obra.indiceEfecto === "despejar"
-                    ? "Despejar niebla"
-                    : obra &&
-                        Array.isArray(obra.zonas) &&
-                        obra.zonas.some((zona) => zona.efecto === "remolino")
-                        ? "Remolinos"
-                        : null;
+                : obra && obra.indiceEfecto === "ondas"
+                    ? "Ondas geométricas"
+                    : obra && obra.indiceEfecto === "despejar"
+                        ? "Despejar niebla"
+                        : obra &&
+                            Array.isArray(obra.zonas) &&
+                            obra.zonas.some((zona) => zona.efecto === "remolino")
+                            ? "Remolinos"
+                            : null;
 
         let texto;
         if (estado.manos === 0) {

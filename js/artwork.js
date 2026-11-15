@@ -150,6 +150,44 @@ const Artwork = (function () {
     let empujeDisolucion = 0;
     const estrellasDisolucion = [];
 
+    // Índice en Composición VIII: los círculos de la obra crecen y cambian
+    // de color mientras el gesto está activo.
+    let kandinskyProgreso = 0;
+    let objetivoKandinsky = 0;
+    let kandinskyFase = 0;
+    let kandinskyExtrasAcum = 0;
+    const circulosKandinsky = [];
+
+    // Palma en Composición VIII: al aparecer la palma la obra explota en
+    // triángulos y círculos que salen volando, con fuegos artificiales y
+    // colores que rotan (de noche).
+    let explosion = 0;
+    let objetivoExplosion = 0;
+    let destelloExplosion = 0;
+    let faseExplosion = 0;
+    let piezasExplosion = null;
+    const fuegosExplosion = [];
+    let fuegosExplosionAcum = 0;
+
+    // Paz en Composición VIII: cada movimiento amplio dispara una onda
+    // cromática que atraviesa la pantalla y mezcla los colores.
+    let cromaFase = 0;
+    let cromaCooldown = 0;
+    let cromaOscuridad = 0;
+    const ondasCromaticas = [];
+    const particulasCroma = [];
+    const circulosCroma = [];
+    let circulosCromaAcum = 0;
+
+    // Pinza en Composición VIII: la obra llueve desde los cuatro bordes
+    // (arriba cuadrados, abajo triángulos, izquierda rectángulos, derecha
+    // círculos) y todo colisiona en el centro.
+    const piezasPinza = [];
+    let piezasPinzaAcum = 0;
+    let pinzaEstabaCerrada = false;
+    const destellosPinza = [];
+    let pinzaFase = 0;
+
     // Cuadrados del multiverso: crecen a distintos ritmos, como animación.
     const cuadradosDisolucion = [];
     let cuadradosDisolucionAcum = 0;
@@ -407,6 +445,10 @@ const Artwork = (function () {
                     actualizarEstrellasSueno(dt);
                     actualizarChorreos(dt);
                     actualizarCuadrados(dt);
+                    actualizarKandinsky(dt);
+                    actualizarExplosion(dt);
+                    actualizarCroma(dt);
+                    actualizarPinzaLluvia(dt);
 
                     dibujarTormenta(p);
                     dibujarAtmosfera(p);
@@ -414,6 +456,10 @@ const Artwork = (function () {
                     dibujarLocura(p);
                     dibujarChorreos(p);
                     dibujarDisolucion(p);
+                    dibujarKandinsky(p);
+                    dibujarExplosion(p);
+                    dibujarCroma(p);
+                    dibujarPinzaLluvia(p);
                     dibujarSueno(p);
                     dibujarRelojesSueno(p);
                     dibujarEstrellasSueno(p);
@@ -1417,6 +1463,930 @@ const Artwork = (function () {
         ctx.restore();
     }
 
+    // Índice en Composición VIII: los círculos de la obra crecen, juegan con
+    // sus tamaños y alternan colores mientras el gesto está activo.
+    function actualizarKandinsky(dt) {
+        kandinskyProgreso +=
+            (objetivoKandinsky - kandinskyProgreso) *
+            Math.min(1, dt * (objetivoKandinsky > kandinskyProgreso ? 2 : 0.7));
+        if (Math.abs(objetivoKandinsky - kandinskyProgreso) < 0.002) {
+            kandinskyProgreso = objetivoKandinsky;
+        }
+        kandinskyFase += dt * (0.8 + 0.6 * kandinskyProgreso);
+
+        // Círculos extra: aparecen de a poco mientras dura el gesto.
+        if (obraActual && obraActual.indiceEfecto === "ondas" && kandinskyProgreso > 0.02) {
+            if (circulosKandinsky.length < 30) {
+                kandinskyExtrasAcum += 6 * kandinskyProgreso * dt;
+                while (kandinskyExtrasAcum >= 1) {
+                    kandinskyExtrasAcum -= 1;
+                    const tipoAzar = Math.random();
+                    circulosKandinsky.push({
+                        x: 0.06 + Math.random() * 0.88,
+                        y: 0.06 + Math.random() * 0.88,
+                        radio: 0.015 + Math.random() * 0.035,
+                        fase: Math.random() * Math.PI * 2,
+                        color: Math.floor(Math.random() * 5),
+                        tipo: tipoAzar < 0.5 ? "circulo" : tipoAzar < 0.75 ? "cuadrado" : "triangulo",
+                    });
+                }
+            }
+        }
+    }
+
+    function dibujarKandinsky(p) {
+        if (kandinskyProgreso <= 0.01) return;
+        if (!zonasActivas.length) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const ladoMenor = Math.min(vista.anchoDibujo, vista.altoDibujo);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+
+        // Fondo atenuado: los círculos resaltan contra la obra oscurecida.
+        ctx.fillStyle = `rgba(8, 10, 16, ${(0.48 * kandinskyProgreso).toFixed(3)})`;
+        ctx.fillRect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+
+        // Cada círculo de la obra se enciende en neón: la luz también
+        // ilumina el círculo negro grande, que así se integra al efecto.
+        let indice = 0;
+        for (const zona of zonasActivas) {
+            if (zona.efecto !== "crecer") continue;
+
+            const centro = aVista(zona.x, zona.y, p, vista);
+            const radio = Math.max(4, zona.radio * ladoMenor);
+            const hue = (kandinskyFase * 45 + indice * 47) % 360;
+            const alpha = 0.5 * kandinskyProgreso;
+
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+
+            // Aro neón con resplandor.
+            ctx.shadowColor = `hsla(${hue}, 100%, 65%, ${alpha.toFixed(3)})`;
+            ctx.shadowBlur = radio * 0.9;
+            ctx.strokeStyle = `hsla(${hue}, 100%, 72%, ${alpha.toFixed(3)})`;
+            ctx.lineWidth = Math.max(1.5, radio * 0.06);
+            ctx.beginPath();
+            ctx.arc(centro.x, centro.y, radio * 0.92, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Luz interior: levanta incluso las zonas negras.
+            const grad = ctx.createRadialGradient(
+                centro.x,
+                centro.y,
+                radio * 0.15,
+                centro.x,
+                centro.y,
+                radio
+            );
+            grad.addColorStop(0, `hsla(${hue}, 100%, 70%, ${(alpha * 0.55).toFixed(3)})`);
+            grad.addColorStop(1, `hsla(${(hue + 30) % 360}, 100%, 60%, 0)`);
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(centro.x, centro.y, radio, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            indice += 1;
+        }
+
+        // Círculos extra: aparecen de a poco, también en neón.
+        const paleta = [
+            [255, 70, 70],
+            [255, 222, 90],
+            [80, 150, 255],
+            [255, 250, 230],
+            [190, 120, 255],
+        ];
+        for (const circulo of circulosKandinsky) {
+            const centro = aVista(circulo.x, circulo.y, p, vista);
+            const pulso =
+                1 +
+                kandinskyProgreso *
+                    (0.3 + 0.25 * Math.sin(kandinskyFase * 1.4 + circulo.fase));
+            const radio = Math.max(2, circulo.radio * ladoMenor * pulso);
+            const color = paleta[circulo.color] || paleta[0];
+            const alpha = 0.7 * kandinskyProgreso;
+
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            ctx.shadowColor = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha.toFixed(3)})`;
+            ctx.shadowBlur = radio * 1.4;
+            ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha.toFixed(3)})`;
+            ctx.lineWidth = Math.max(1.2, ladoMenor * 0.0025);
+            ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${(
+                alpha * 0.18
+            ).toFixed(3)})`;
+
+            ctx.translate(centro.x, centro.y);
+            ctx.rotate(kandinskyFase * 0.7 + circulo.fase);
+            ctx.beginPath();
+
+            if (circulo.tipo === "cuadrado") {
+                const lado = radio * 1.6;
+                ctx.rect(-lado / 2, -lado / 2, lado, lado);
+            } else if (circulo.tipo === "triangulo") {
+                const lado = radio * 1.9;
+                ctx.moveTo(0, -lado * 0.6);
+                ctx.lineTo(lado * 0.55, lado * 0.4);
+                ctx.lineTo(-lado * 0.55, lado * 0.4);
+                ctx.closePath();
+            } else {
+                ctx.arc(0, 0, radio, 0, Math.PI * 2);
+            }
+
+            ctx.stroke();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    // Explosión geométrica: un movimiento rápido de la palma rompe la obra
+    // en cientos de piezas que salen volando y luego se rearman.
+    function crearPiezasExplosion() {
+        const piezas = [];
+        const cols = 18;
+        const filas = 12;
+        for (let fy = 0; fy < filas; fy += 1) {
+            for (let fx = 0; fx < cols; fx += 1) {
+                const nx = (fx + 0.5) / cols;
+                const ny = (fy + 0.5) / filas;
+                const dx = nx - 0.5;
+                const dy = ny - 0.5;
+                const norma = Math.hypot(dx, dy) || 1;
+                const velocidad = 0.5 + Math.random() * 0.9;
+                piezas.push({
+                    sx: (fx * dimensiones.ancho) / cols,
+                    sy: (fy * dimensiones.alto) / filas,
+                    sw: dimensiones.ancho / cols,
+                    sh: dimensiones.alto / filas,
+                    nx,
+                    ny,
+                    dx: (dx / norma) * velocidad + (Math.random() - 0.5) * 0.25,
+                    dy: (dy / norma) * velocidad - 0.25 + Math.random() * 0.2,
+                    rot: (Math.random() - 0.5) * 4,
+                    fase: Math.random() * Math.PI * 2,
+                    forma: Math.random() < 0.5 ? "tri" : "cir",
+                });
+            }
+        }
+        return piezas;
+    }
+
+    function actualizarExplosion(dt) {
+        const estado = ultimaEntrada;
+        const explosionPrevia = explosion;
+
+        if (obraActual && obraActual.palmEfecto === "explotar") {
+            // Al aparecer la palma, la obra explota y se hace de noche.
+            objetivoExplosion = estado && estado.palmaManos > 0 ? 1 : 0;
+            if (explosionPrevia < 0.05 && objetivoExplosion === 1) {
+                destelloExplosion = 1;
+            }
+        } else {
+            objetivoExplosion = 0;
+        }
+
+        explosion +=
+            (objetivoExplosion - explosion) *
+            Math.min(1, dt * (objetivoExplosion > explosion ? 4 : 0.7));
+        if (Math.abs(objetivoExplosion - explosion) < 0.002) {
+            explosion = objetivoExplosion;
+        }
+
+        faseExplosion += dt * (1.2 + explosion * 1.6);
+        destelloExplosion = Math.max(0, destelloExplosion - dt * 1.6);
+
+        // Fuegos artificiales: chispas de colores que rotan con el tiempo.
+        if (explosion > 0.15) {
+            fuegosExplosionAcum += 3.5 * dt * explosion;
+            while (fuegosExplosionAcum >= 1) {
+                fuegosExplosionAcum -= 1;
+                const cx = 0.12 + Math.random() * 0.76;
+                const cy = 0.12 + Math.random() * 0.76;
+                const hueBase = (faseExplosion * 70 + Math.random() * 60) % 360;
+                for (let i = 0; i < 16; i += 1) {
+                    const ang = (i / 16) * Math.PI * 2 + Math.random() * 0.3;
+                    const vel = 0.05 + Math.random() * 0.07;
+                    fuegosExplosion.push({
+                        x: cx,
+                        y: cy,
+                        vx: Math.cos(ang) * vel,
+                        vy: Math.sin(ang) * vel,
+                        vida: 1,
+                        hue: (hueBase + Math.random() * 30) % 360,
+                    });
+                }
+            }
+            if (fuegosExplosion.length > 320) {
+                fuegosExplosion.splice(0, fuegosExplosion.length - 320);
+            }
+        }
+
+        for (let i = fuegosExplosion.length - 1; i >= 0; i -= 1) {
+            const fuego = fuegosExplosion[i];
+            fuego.x += fuego.vx * dt;
+            fuego.y += fuego.vy * dt;
+            fuego.vy += 0.05 * dt; // gravedad suave
+            fuego.vida -= dt * 0.9;
+            if (fuego.vida <= 0) fuegosExplosion.splice(i, 1);
+        }
+    }
+
+    function dibujarExplosion(p) {
+        if (explosion <= 0.01 && destelloExplosion <= 0.01) return;
+        if (!imagen || !dimensiones) return;
+        if (!piezasExplosion) piezasExplosion = crearPiezasExplosion();
+
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+        const d = Math.pow(Math.min(1, explosion), 1.2);
+        const ladoMenor = Math.min(ancho, alto);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, ancho, alto);
+        ctx.clip();
+
+        // Piezas: mezcla de triángulos y círculos que salen volando.
+        for (const pieza of piezasExplosion) {
+            const cx = vista.offsetX + pieza.nx * ancho + pieza.dx * d * ancho * 0.32;
+            const cy = vista.offsetY + pieza.ny * alto + pieza.dy * d * alto * 0.32;
+            const rot = pieza.rot * d;
+            const escala = vista.fit * (1 + d * 0.1);
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(rot);
+
+            if (pieza.forma === "tri") {
+                const w = pieza.sw * escala;
+                const h = pieza.sh * escala;
+                ctx.beginPath();
+                ctx.moveTo(0, -w * 0.5);
+                ctx.lineTo(w * 0.5, h * 0.42);
+                ctx.lineTo(-w * 0.5, h * 0.42);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(
+                    imagen.canvas,
+                    pieza.sx,
+                    pieza.sy,
+                    pieza.sw,
+                    pieza.sh,
+                    -w / 2,
+                    -h * 0.2,
+                    w,
+                    h
+                );
+            } else {
+                const radio = Math.max(2, Math.min(pieza.sw, pieza.sh) * escala * 0.5);
+                ctx.beginPath();
+                ctx.arc(0, 0, radio, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(
+                    imagen.canvas,
+                    pieza.sx,
+                    pieza.sy,
+                    pieza.sw,
+                    pieza.sh,
+                    -radio,
+                    -radio,
+                    radio * 2,
+                    radio * 2
+                );
+            }
+
+            ctx.restore();
+        }
+
+        // Colores rotando sobre las piezas.
+        const hue = (faseExplosion * 55) % 360;
+        const brillo = ctx.createLinearGradient(
+            vista.offsetX,
+            vista.offsetY,
+            vista.offsetX + ancho,
+            vista.offsetY + alto
+        );
+        brillo.addColorStop(0, `hsla(${hue}, 85%, 55%, ${(0.32 * d).toFixed(3)})`);
+        brillo.addColorStop(1, `hsla(${(hue + 120) % 360}, 85%, 55%, ${(0.32 * d).toFixed(3)})`);
+        ctx.globalCompositeOperation = "color";
+        ctx.fillStyle = brillo;
+        ctx.fillRect(vista.offsetX, vista.offsetY, ancho, alto);
+        ctx.globalCompositeOperation = "source-over";
+
+        // Fuegos artificiales.
+        for (const fuego of fuegosExplosion) {
+            const px = vista.offsetX + fuego.x * ancho;
+            const py = vista.offsetY + fuego.y * alto;
+            const alpha = Math.max(0, fuego.vida) * d;
+            ctx.fillStyle = `hsla(${fuego.hue}, 100%, 68%, ${alpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(px, py, Math.max(1, ladoMenor * 0.0022), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = `hsla(${fuego.hue}, 100%, 68%, ${(alpha * 0.45).toFixed(3)})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px - fuego.vx * ancho * 0.06, py - fuego.vy * alto * 0.06);
+            ctx.stroke();
+        }
+
+        // Noche: toda la escena se tiñe de azul profundo.
+        if (d > 0.01) {
+            ctx.fillStyle = `rgba(8, 12, 40, ${(0.45 * d).toFixed(3)})`;
+            ctx.fillRect(vista.offsetX, vista.offsetY, ancho, alto);
+        }
+
+        // Destello blanco al explotar.
+        if (destelloExplosion > 0.01) {
+            ctx.fillStyle = `rgba(255, 250, 240, ${(0.55 * destelloExplosion).toFixed(3)})`;
+            ctx.fillRect(vista.offsetX, vista.offsetY, ancho, alto);
+        }
+
+        ctx.restore();
+    }
+
+    // Paz en Composición VIII: cada movimiento amplio dispara una onda
+    // cromática que cruza la pantalla y mezcla los colores.
+    function actualizarCroma(dt) {
+        cromaFase += dt;
+        cromaCooldown = Math.max(0, cromaCooldown - dt);
+
+        // El fondo se vuelve completamente negro mientras hay ondas activas.
+        const objetivoOscuridad = ondasCromaticas.length > 0 ? 1 : 0;
+        cromaOscuridad +=
+            (objetivoOscuridad - cromaOscuridad) *
+            Math.min(1, dt * (objetivoOscuridad > cromaOscuridad ? 8 : 1.2));
+        if (Math.abs(objetivoOscuridad - cromaOscuridad) < 0.002) {
+            cromaOscuridad = objetivoOscuridad;
+        }
+
+        const estado = ultimaEntrada;
+        if (
+            obraActual &&
+            obraActual.pazEfecto === "croma" &&
+            estado &&
+            estado.paz &&
+            cromaCooldown <= 0
+        ) {
+            const vel = estado.pazVelocidad || 0;
+            const amplio = vel > 0.012;
+            // La onda nace del centro de la obra y sale hacia afuera.
+            ondasCromaticas.push({
+                x: 0.5,
+                y: 0.5,
+                progreso: 0,
+                hue: Math.random() * 360,
+                fuerza: amplio ? Math.min(1, vel * 12) : 0.55,
+                proxima: 0,
+            });
+            // El gesto sostenido mantiene el efecto vivo: emite ondas de
+            // forma continua y los movimientos amplios aceleran la cadencia.
+            cromaCooldown = amplio ? 0.35 : 0.8;
+        }
+
+        for (let i = ondasCromaticas.length - 1; i >= 0; i -= 1) {
+            const onda = ondasCromaticas[i];
+            onda.progreso += dt * 1.1;
+
+            // Las ondas expulsan círculos, líneas fragmentadas y figuras.
+            while (onda.proxima <= onda.progreso && onda.proxima < 1) {
+                onda.proxima += 0.08;
+                for (let j = 0; j < 6; j += 1) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const tipoAzar = Math.random();
+                    particulasCroma.push({
+                        x: 0.5 + Math.cos(ang) * onda.progreso * 0.5,
+                        y: 0.5 + Math.sin(ang) * onda.progreso * 0.5,
+                        vx: Math.cos(ang) * (0.12 + Math.random() * 0.12),
+                        vy: Math.sin(ang) * (0.12 + Math.random() * 0.12),
+                        tipo:
+                            tipoAzar < 0.45
+                                ? "circulo"
+                                : tipoAzar < 0.7
+                                    ? "linea"
+                                    : "figura",
+                        rot: Math.random() * Math.PI,
+                        giro: (Math.random() - 0.5) * 2.4,
+                        tam: 0.012 + Math.random() * 0.022,
+                        color: Math.floor(Math.random() * 5),
+                        fase: Math.random() * Math.PI * 2,
+                        vida: 1,
+                    });
+                }
+            }
+
+            if (onda.progreso >= 1) ondasCromaticas.splice(i, 1);
+        }
+        if (ondasCromaticas.length > 12) {
+            ondasCromaticas.splice(0, ondasCromaticas.length - 12);
+        }
+
+        for (let i = particulasCroma.length - 1; i >= 0; i -= 1) {
+            const particula = particulasCroma[i];
+            particula.x += particula.vx * dt;
+            particula.y += particula.vy * dt;
+            particula.rot += particula.giro * dt;
+            particula.vida -= dt * 0.5;
+            if (particula.vida <= 0) particulasCroma.splice(i, 1);
+        }
+        if (particulasCroma.length > 520) {
+            particulasCroma.splice(0, particulasCroma.length - 520);
+        }
+
+        // Círculos random por toda la pintura mientras hay ondas activas:
+        // aparecen, giran, alternan su tamaño y cambian de color.
+        const actividadOndas = Math.min(1, ondasCromaticas.length * 0.45);
+        if (actividadOndas > 0.05) {
+            circulosCromaAcum += 14 * dt * actividadOndas;
+            while (circulosCromaAcum >= 1) {
+                circulosCromaAcum -= 1;
+                circulosCroma.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    radio: 0.02 + Math.random() * 0.09,
+                    vida: 0,
+                    duracion: 1.4 + Math.random() * 1.8,
+                    hue: Math.random() * 360,
+                    rot: Math.random() * Math.PI,
+                    giro: (Math.random() - 0.5) * 3,
+                    pulso: 1 + Math.random() * 2.5,
+                    fase: Math.random() * Math.PI * 2,
+                    trazo: Math.random() < 0.5,
+                });
+            }
+            if (circulosCroma.length > 160) {
+                circulosCroma.splice(0, circulosCroma.length - 160);
+            }
+        }
+
+        for (let i = circulosCroma.length - 1; i >= 0; i -= 1) {
+            const circulo = circulosCroma[i];
+            circulo.vida += dt / circulo.duracion;
+            circulo.rot += circulo.giro * dt;
+            if (circulo.vida >= 1) circulosCroma.splice(i, 1);
+        }
+    }
+
+    function dibujarCroma(p) {
+        if (
+            ondasCromaticas.length === 0 &&
+            particulasCroma.length === 0 &&
+            circulosCroma.length === 0 &&
+            cromaOscuridad < 0.01
+        ) {
+            return;
+        }
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const ladoMenor = Math.min(vista.anchoDibujo, vista.altoDibujo);
+        const maxDiag = Math.hypot(vista.anchoDibujo, vista.altoDibujo);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+
+        // Las ondas apagan la obra por completo: fondo negro.
+        if (cromaOscuridad > 0.01) {
+            ctx.fillStyle = `rgba(0, 0, 0, ${cromaOscuridad.toFixed(3)})`;
+            ctx.fillRect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        }
+
+        for (const onda of ondasCromaticas) {
+            const centro = aVista(onda.x, onda.y, p, vista);
+            const radio = onda.progreso * maxDiag * 0.85;
+            const grosor = ladoMenor * 0.16;
+            const alpha = Math.sin(Math.PI * onda.progreso) * 0.6 * onda.fuerza;
+            const hue = (onda.hue + onda.progreso * 140 + cromaFase * 30) % 360;
+
+            // Dos anillos de tono desfasado: los colores se separan y se
+            // mezclan al atravesar la superficie.
+            for (const desfase of [0, 120]) {
+                const grad = ctx.createRadialGradient(
+                    centro.x,
+                    centro.y,
+                    Math.max(0, radio - grosor),
+                    centro.x,
+                    centro.y,
+                    radio + grosor
+                );
+                grad.addColorStop(0, "hsla(0, 0%, 0%, 0)");
+                grad.addColorStop(
+                    0.5,
+                    `hsla(${(hue + desfase) % 360}, 95%, 60%, ${alpha.toFixed(3)})`
+                );
+                grad.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+
+                ctx.globalCompositeOperation = "color";
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(centro.x, centro.y, radio + grosor, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalCompositeOperation = "screen";
+                ctx.fill();
+            }
+        }
+
+        // Figuras expulsadas por las ondas: círculos, líneas y geometría que
+        // cambian de tamaño, giran y mutan de color mientras se alejan.
+        for (const particula of particulasCroma) {
+            const centro = aVista(particula.x, particula.y, p, vista);
+            const fase = particula.fase || 0;
+            const pulso = 0.7 + 0.5 * Math.sin(cromaFase * 3.4 + fase);
+            const tam = Math.max(2, particula.tam * ladoMenor * pulso);
+            const giroColor = (cromaFase * 70 + particula.color * 55 + fase * 40) % 360;
+            const alpha = Math.max(0, particula.vida);
+
+            ctx.save();
+            ctx.translate(centro.x, centro.y);
+            ctx.rotate(particula.rot);
+            ctx.strokeStyle = `hsla(${giroColor.toFixed(1)}, 95%, 62%, ${alpha.toFixed(3)})`;
+            ctx.fillStyle = `hsla(${((giroColor + 40) % 360).toFixed(1)}, 95%, 55%, ${(
+                alpha * 0.3
+            ).toFixed(3)})`;
+            ctx.lineWidth = Math.max(1, ladoMenor * 0.002);
+            ctx.beginPath();
+
+            if (particula.tipo === "circulo") {
+                ctx.arc(0, 0, tam * 0.6, 0, Math.PI * 2);
+            } else if (particula.tipo === "linea") {
+                ctx.moveTo(-tam, 0);
+                ctx.lineTo(tam, 0);
+            } else {
+                const lado = tam * 1.1;
+                ctx.moveTo(0, -lado * 0.6);
+                ctx.lineTo(lado * 0.55, lado * 0.4);
+                ctx.lineTo(-lado * 0.55, lado * 0.4);
+                ctx.closePath();
+            }
+
+            ctx.stroke();
+            if (particula.tipo !== "linea") {
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        // Círculos random repartidos por toda la pintura: aparecen, giran,
+        // alternan su tamaño y cambian de color.
+        for (const circulo of circulosCroma) {
+            const px = vista.offsetX + circulo.x * vista.anchoDibujo;
+            const py = vista.offsetY + circulo.y * vista.altoDibujo;
+            const aparicion = Math.sin(Math.PI * Math.min(1, circulo.vida));
+            const pulso =
+                1 + 0.45 * Math.sin(cromaFase * 4 * circulo.pulso + circulo.fase);
+            const radio = Math.max(2, circulo.radio * ladoMenor * pulso * aparicion);
+            const hueCirculo = (circulo.hue + cromaFase * 60) % 360;
+            const alpha = Math.min(1, circulo.vida * 3) * (1 - circulo.vida);
+
+            ctx.save();
+            ctx.translate(px, py);
+            ctx.rotate(circulo.rot);
+            ctx.strokeStyle = `hsla(${hueCirculo.toFixed(1)}, 95%, 62%, ${Math.max(
+                0,
+                alpha
+            ).toFixed(3)})`;
+            ctx.lineWidth = Math.max(1, ladoMenor * 0.003);
+            ctx.beginPath();
+            ctx.arc(0, 0, radio, 0, Math.PI * 2);
+            if (!circulo.trazo) {
+                ctx.fillStyle = `hsla(${hueCirculo.toFixed(1)}, 90%, 55%, ${Math.max(
+                    0,
+                    alpha * 0.35
+                ).toFixed(3)})`;
+                ctx.fill();
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        ctx.globalCompositeOperation = "source-over";
+        ctx.restore();
+    }
+
+    // Pinza en Composición VIII: la obra llueve desde los cuatro bordes y
+    // todo colisiona en el centro. Arriba cuadrados, abajo triángulos,
+    // izquierda rectángulos, derecha círculos.
+    function soltarPiezaPinza(lado) {
+        const base = dimensiones.ancho * (0.03 + Math.random() * 0.05);
+        let sw = base;
+        let sh = base;
+        if (lado === "izquierda") {
+            sw = base * 1.7;
+            sh = base * 0.75;
+        } else if (lado === "abajo") {
+            sh = base * 1.2;
+        }
+
+        const sx = Math.random() * Math.max(1, dimensiones.ancho - sw);
+        const sy = Math.random() * Math.max(1, dimensiones.alto - sh);
+        const rapidez = 0.5 + Math.random() * 0.25;
+        const jitter = (Math.random() - 0.5) * 0.05;
+        const pieza = {
+            sx,
+            sy,
+            sw,
+            sh,
+            lado,
+            x: 0.5,
+            y: 0.5,
+            vx: 0,
+            vy: 0,
+            rot: (Math.random() - 0.5) * 1.2,
+            giro: (Math.random() - 0.5) * 1.6,
+            fase: Math.random() * Math.PI * 2,
+        };
+
+        // Nacen en el borde de su lado, dentro de una franja central, para
+        // que la lluvia caiga hacia el centro y todas colisionen.
+        if (lado === "arriba") {
+            pieza.x = 0.3 + Math.random() * 0.4;
+            pieza.y = -0.12;
+        } else if (lado === "abajo") {
+            pieza.x = 0.3 + Math.random() * 0.4;
+            pieza.y = 1.12;
+        } else if (lado === "izquierda") {
+            pieza.x = -0.12;
+            pieza.y = 0.3 + Math.random() * 0.4;
+        } else {
+            pieza.x = 1.12;
+            pieza.y = 0.3 + Math.random() * 0.4;
+        }
+
+        // Velocidad apuntando al centro: todas terminan en la colisión.
+        const dx = 0.5 - pieza.x;
+        const dy = 0.5 - pieza.y;
+        const norma = Math.hypot(dx, dy) || 1;
+        pieza.vx = (dx / norma) * rapidez + jitter;
+        pieza.vy = (dy / norma) * rapidez + jitter;
+
+        piezasPinza.push(pieza);
+    }
+
+    function explosionarPiezasPinza() {
+        // Al abrir la pinza por completo, todos los pedazos salen despedidos
+        // en todas las direcciones antes de que la obra vuelva a su forma.
+        for (const pieza of piezasPinza) {
+            const dx = pieza.x - 0.5;
+            const dy = pieza.y - 0.5;
+            const norma = Math.hypot(dx, dy) || 1;
+            const rapidez = 0.8 + Math.random() * 0.9;
+            pieza.modo = "explosion";
+            pieza.vx = (dx / norma) * rapidez + (Math.random() - 0.5) * 0.35;
+            pieza.vy = (dy / norma) * rapidez + (Math.random() - 0.5) * 0.35;
+            pieza.giro = (Math.random() - 0.5) * 7;
+            pieza.vida = 1;
+        }
+
+        // Y estallan también pedazos nuevos desde el centro.
+        for (let i = 0; i < 26; i += 1) {
+            const azar = Math.random();
+            soltarPiezaPinza(
+                azar < 0.25
+                    ? "arriba"
+                    : azar < 0.5
+                        ? "abajo"
+                        : azar < 0.75
+                            ? "izquierda"
+                            : "derecha"
+            );
+            const nueva = piezasPinza[piezasPinza.length - 1];
+            nueva.x = 0.5;
+            nueva.y = 0.5;
+            const ang = Math.random() * Math.PI * 2;
+            const rapidez = 0.7 + Math.random() * 1;
+            nueva.modo = "explosion";
+            nueva.vx = Math.cos(ang) * rapidez;
+            nueva.vy = Math.sin(ang) * rapidez;
+            nueva.giro = (Math.random() - 0.5) * 8;
+            nueva.vida = 1;
+        }
+    }
+
+    function actualizarPinzaLluvia(dt) {
+        pinzaFase += dt;
+        const estado = ultimaEntrada;
+        const esLluvia = obraActual && obraActual.pinzaEfecto === "lluvia";
+        const activa = esLluvia && imagen && dimensiones && estado && estado.pinzaCerrada;
+
+        // Mientras la pinza está cerrada, la obra llueve desde los bordes.
+        if (activa) {
+            pinzaEstabaCerrada = true;
+            piezasPinzaAcum += 52 * dt;
+            while (piezasPinzaAcum >= 1) {
+                piezasPinzaAcum -= 1;
+                const azar = Math.random();
+                soltarPiezaPinza(
+                    azar < 0.25
+                        ? "arriba"
+                        : azar < 0.5
+                            ? "abajo"
+                            : azar < 0.75
+                                ? "izquierda"
+                                : "derecha"
+                );
+            }
+        } else {
+            // Al abrir la pinza por completo (estado "abierta"), antes de
+            // volver a la obra original, todo lo que está en escena
+            // explota y los pedazos se van por todos lados.
+            const abierta =
+                esLluvia && estado && estado.pinzaAbierta && !estado.pinzaCerrada;
+            if (pinzaEstabaCerrada && abierta && imagen && dimensiones) {
+                explosionarPiezasPinza();
+            }
+            pinzaEstabaCerrada = false;
+            piezasPinzaAcum = 0;
+        }
+        if (piezasPinza.length > 260) {
+            piezasPinza.splice(0, piezasPinza.length - 260);
+        }
+
+        for (let i = piezasPinza.length - 1; i >= 0; i -= 1) {
+            const pieza = piezasPinza[i];
+
+            // Pedazos despedidos por la explosión: vuelan lejos y se apagan.
+            if (pieza.modo === "explosion") {
+                pieza.x += pieza.vx * dt;
+                pieza.y += pieza.vy * dt;
+                pieza.rot += pieza.giro * dt;
+                pieza.vida -= dt * 0.55;
+                if (
+                    pieza.vida <= 0 ||
+                    pieza.x < -0.3 ||
+                    pieza.x > 1.3 ||
+                    pieza.y < -0.3 ||
+                    pieza.y > 1.3
+                ) {
+                    piezasPinza.splice(i, 1);
+                }
+                continue;
+            }
+
+            pieza.x += pieza.vx * dt;
+            pieza.y += pieza.vy * dt;
+            pieza.rot += pieza.giro * dt;
+
+            // Al llegar al centro, colisiona y estalla.
+            if (Math.hypot(pieza.x - 0.5, pieza.y - 0.5) < 0.06) {
+                piezasPinza.splice(i, 1);
+                for (let j = 0; j < 9; j += 1) {
+                    const ang = Math.random() * Math.PI * 2;
+                    const vel = 0.18 + Math.random() * 0.34;
+                    destellosPinza.push({
+                        x: 0.5,
+                        y: 0.5,
+                        vx: Math.cos(ang) * vel,
+                        vy: Math.sin(ang) * vel,
+                        vida: 1,
+                        hue: Math.random() * 360,
+                    });
+                }
+            }
+        }
+        if (destellosPinza.length > 420) {
+            destellosPinza.splice(0, destellosPinza.length - 420);
+        }
+
+        for (let i = destellosPinza.length - 1; i >= 0; i -= 1) {
+            const destello = destellosPinza[i];
+            destello.x += destello.vx * dt;
+            destello.y += destello.vy * dt;
+            destello.vida -= dt * 1.4;
+            if (destello.vida <= 0) destellosPinza.splice(i, 1);
+        }
+    }
+
+    function dibujarPinzaLluvia(p) {
+        if (piezasPinza.length === 0 && destellosPinza.length === 0) {
+            return;
+        }
+        if (!imagen || !dimensiones) return;
+
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+        const ladoMenor = Math.min(ancho, alto);
+        const centroX = vista.offsetX + ancho / 2;
+        const centroY = vista.offsetY + alto / 2;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, ancho, alto);
+        ctx.clip();
+
+        // Piezas de la obra que caen desde cada borde hacia el centro.
+        for (const pieza of piezasPinza) {
+            const px = vista.offsetX + pieza.x * ancho;
+            const py = vista.offsetY + pieza.y * alto;
+            const w = pieza.sw * vista.fit;
+            const h = pieza.sh * vista.fit;
+
+            ctx.save();
+            if (pieza.modo === "explosion") {
+                ctx.globalAlpha = Math.max(0, Math.min(1, pieza.vida));
+            }
+            ctx.translate(px, py);
+            ctx.rotate(pieza.rot);
+            ctx.beginPath();
+
+            if (pieza.lado === "abajo") {
+                ctx.moveTo(0, -h * 0.55);
+                ctx.lineTo(w * 0.5, h * 0.45);
+                ctx.lineTo(-w * 0.5, h * 0.45);
+                ctx.closePath();
+                ctx.clip();
+                ctx.drawImage(
+                    imagen.canvas,
+                    pieza.sx,
+                    pieza.sy,
+                    pieza.sw,
+                    pieza.sh,
+                    -w / 2,
+                    -h * 0.4,
+                    w,
+                    h
+                );
+            } else if (pieza.lado === "derecha") {
+                const radio = Math.max(2, Math.min(w, h) * 0.5);
+                ctx.arc(0, 0, radio, 0, Math.PI * 2);
+                ctx.clip();
+                ctx.drawImage(
+                    imagen.canvas,
+                    pieza.sx,
+                    pieza.sy,
+                    pieza.sw,
+                    pieza.sh,
+                    -radio,
+                    -radio,
+                    radio * 2,
+                    radio * 2
+                );
+            } else {
+                ctx.rect(-w / 2, -h / 2, w, h);
+                ctx.clip();
+                ctx.drawImage(
+                    imagen.canvas,
+                    pieza.sx,
+                    pieza.sy,
+                    pieza.sw,
+                    pieza.sh,
+                    -w / 2,
+                    -h / 2,
+                    w,
+                    h
+                );
+            }
+
+            ctx.restore();
+        }
+
+        // Destellos de la colisión.
+        for (const destello of destellosPinza) {
+            const px = vista.offsetX + destello.x * ancho;
+            const py = vista.offsetY + destello.y * alto;
+            const alpha = Math.max(0, destello.vida);
+            ctx.fillStyle = `hsla(${(destello.hue + pinzaFase * 90) % 360}, 100%, 68%, ${alpha.toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(px, py, Math.max(1, ladoMenor * 0.0035), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Núcleo del impacto: crece con la cantidad de choques.
+        if (destellosPinza.length > 20) {
+            const intensidad = Math.min(1, destellosPinza.length / 180);
+            const radioNucleo = ladoMenor * 0.22 * intensidad + 1;
+            const nucleo = ctx.createRadialGradient(
+                centroX,
+                centroY,
+                0,
+                centroX,
+                centroY,
+                radioNucleo
+            );
+            nucleo.addColorStop(0, `rgba(255, 250, 235, ${(0.5 * intensidad).toFixed(3)})`);
+            nucleo.addColorStop(1, "rgba(255, 250, 235, 0)");
+            ctx.fillStyle = nucleo;
+            ctx.beginPath();
+            ctx.arc(centroX, centroY, radioNucleo, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
     // Lluvia de estrellas del sueño: caen en vertical dentro de la obra.
     function actualizarEstrellasSueno(dt) {
         if (sueno > 0.02) {
@@ -2164,6 +3134,29 @@ const Artwork = (function () {
             }
         }
 
+        // Índice (Composición VIII): los círculos de la obra crecen y juegan
+        // con sus tamaños mientras el gesto está activo.
+        if (kandinskyProgreso > 0.002) {
+            for (const zona of zonasActivas) {
+                if (zona.efecto !== "crecer") continue;
+
+                const cx = zona.x * dimensiones.ancho;
+                const cy = zona.y * dimensiones.alto;
+                const radio = zona.radio * Math.min(dimensiones.ancho, dimensiones.alto);
+                const dx = x - cx;
+                const dy = y - cy;
+                const caida = Math.exp(-(dx * dx + dy * dy) / (radio * radio));
+                const faseZona = cx * 0.012 + cy * 0.017;
+                const pulso =
+                    1 +
+                    kandinskyProgreso *
+                        caida *
+                        (0.35 + 0.3 * Math.sin(kandinskyFase * 1.6 + faseZona));
+                x = cx + dx * pulso;
+                y = cy + dy * pulso;
+            }
+        }
+
         // Viento: desplazamiento horizontal del cielo, suavizado por la
         // máscara (cero sobre los cuerpos celestes y el paisaje), más una
         // ondulación que viaja con el viento y deja rastro de brisa.
@@ -2467,6 +3460,30 @@ const Artwork = (function () {
         empujeDisolucion = 0;
         cuadradosDisolucion.length = 0;
         cuadradosDisolucionAcum = 0;
+        kandinskyProgreso = 0;
+        objetivoKandinsky = 0;
+        kandinskyFase = 0;
+        kandinskyExtrasAcum = 0;
+        circulosKandinsky.length = 0;
+        explosion = 0;
+        objetivoExplosion = 0;
+        destelloExplosion = 0;
+        faseExplosion = 0;
+        piezasExplosion = null;
+        fuegosExplosion.length = 0;
+        fuegosExplosionAcum = 0;
+        cromaFase = 0;
+        cromaCooldown = 0;
+        cromaOscuridad = 0;
+        ondasCromaticas.length = 0;
+        particulasCroma.length = 0;
+        circulosCroma.length = 0;
+        circulosCromaAcum = 0;
+        piezasPinza.length = 0;
+        piezasPinzaAcum = 0;
+        destellosPinza.length = 0;
+        pinzaEstabaCerrada = false;
+        pinzaFase = 0;
 
         // Resplandor: cada obra arranca con la pintura original.
         iluminacion = 0;
@@ -2682,6 +3699,10 @@ const Artwork = (function () {
         objetivoDisolucion =
             obraActual && obraActual.indiceEfecto === "disolver" && estado.molino ? 1 : 0;
 
+        // Índice en Composición VIII: ondas geométricas al mover la mano.
+        objetivoKandinsky =
+            obraActual && obraActual.indiceEfecto === "ondas" && estado.molino ? 1 : 0;
+
         if (
             estado.molino &&
             obraActual &&
@@ -2770,6 +3791,30 @@ const Artwork = (function () {
         empujeDisolucion = 0;
         cuadradosDisolucion.length = 0;
         cuadradosDisolucionAcum = 0;
+        kandinskyProgreso = 0;
+        objetivoKandinsky = 0;
+        kandinskyFase = 0;
+        kandinskyExtrasAcum = 0;
+        circulosKandinsky.length = 0;
+        explosion = 0;
+        objetivoExplosion = 0;
+        destelloExplosion = 0;
+        faseExplosion = 0;
+        piezasExplosion = null;
+        fuegosExplosion.length = 0;
+        fuegosExplosionAcum = 0;
+        cromaFase = 0;
+        cromaCooldown = 0;
+        cromaOscuridad = 0;
+        ondasCromaticas.length = 0;
+        particulasCroma.length = 0;
+        circulosCroma.length = 0;
+        circulosCromaAcum = 0;
+        piezasPinza.length = 0;
+        piezasPinzaAcum = 0;
+        destellosPinza.length = 0;
+        pinzaEstabaCerrada = false;
+        pinzaFase = 0;
         meteoros.length = 0;
         lluviaAcumulador = 0;
         ultimaPaz = 0;
