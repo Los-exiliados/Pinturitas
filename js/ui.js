@@ -84,7 +84,9 @@ const POSES_LEGADO = [
 function crearPose(datos) {
     const pose = document.createElement("div");
     pose.className = "pose";
-    pose.title = datos.title;
+    // Las poses del contrato de gestos traen una descripción larga en
+    // `title`; las tarjetas propias de una obra no, así que se usa el nombre.
+    pose.title = datos.title || datos.nombre;
 
     const icono = document.createElement("span");
     icono.className = "pose-icono";
@@ -115,6 +117,9 @@ function renderizarPosesExperiencia(obra) {
             const config = obra.gestos[gesto];
             return config ? POSES_POR_EFECTO[config.efecto] : null;
         }).filter(Boolean);
+    } else if (obra && Array.isArray(obra.poses) && obra.poses.length > 0) {
+        // Obra sin contrato de gestos: conserva sus tarjetas propias.
+        datos = obra.poses;
     } else {
         datos = POSES_LEGADO;
     }

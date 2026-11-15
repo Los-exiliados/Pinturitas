@@ -58,10 +58,13 @@
 // Sin esos campos, el gesto queda inactivo en esa obra: así cada pintura
 // puede darle a los mismos gestos funciones distintas.
 //
-// Las tarjetas del pie de la experiencia se definen por obra en `poses`:
+// El pie de la experiencia lo arma ui.js (`renderizarPosesExperiencia`) con
+// esta precedencia: si la obra declara `gestos`, cada efecto se traduce a su
+// tarjeta con POSES_POR_EFECTO; si no, se usan las tarjetas propias de
+// `poses`; y si tampoco hay, la leyenda histórica. Las tarjetas propias se
+// definen por obra en `poses`:
 //   { icono, nombre, desc }
-// El pie se arma según la obra abierta, mostrando solo las interacciones
-// que esa pintura tiene activas.
+// El pie muestra así solo las interacciones que esa pintura tiene activas.
 //
 // La pinza puede tener dos funciones según la obra: si la obra define
 // `pinzaEfecto: "profundidad"`, la distancia entre los dedos controla la
@@ -192,9 +195,7 @@ const CatalogoObras = [
         anio: 1831,
         tema: "ola",
         archivo: "obras/la-gran-ola-de-kanagawa.jpg",
-        poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
-        ],
+        // Sin `poses`: sus tarjetas salen del contrato `gestos` de abajo.
         mascara: "obras/la-gran-ola-mascara.png",
         gestos: {
             // La palma abierta arrastra el mar y los barcos en horizontal.
