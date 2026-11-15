@@ -1038,8 +1038,13 @@ const Monet = (function () {
         if (cielo < 0.002) cielo = 0;
 
         let objetivoTormenta = 0;
-        if (estado && Number.isFinite(estado.pinzaDistancia)) {
-            objetivoTormenta = limitar((0.45 - estado.pinzaDistancia) / (0.45 - 0.28), 0, 1);
+        const apertura = estado
+            ? Number.isFinite(estado.pinzaApertura)
+                ? estado.pinzaApertura
+                : estado.pinzaDistancia
+            : null;
+        if (Number.isFinite(apertura)) {
+            objetivoTormenta = limitar((0.45 - apertura) / (0.45 - 0.28), 0, 1);
         }
         tormenta += (objetivoTormenta - tormenta) * Math.min(1, paso * 3);
         if (tormenta < 0.002) tormenta = 0;

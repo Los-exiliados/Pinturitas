@@ -34,6 +34,14 @@ const Gamelogic = (function () {
     // el desplazamiento horizontal entre frames para el viento.
     const palmasAnteriores = new Map();
 
+    // Posición X previa del centro de cada mano con el índice extendido:
+    // alimenta el arrastre que despeja la niebla (El caminante).
+    const indicesAnteriores = new Map();
+
+    // Posición previa del centro de cada mano en paz: mide el movimiento
+    // amplio que dispara las ondas cromáticas (Composición VIII).
+    const pazAnteriores = new Map();
+
     let obraActiva = null;
     let bucleActivo = false;
 
@@ -72,6 +80,7 @@ const Gamelogic = (function () {
             if (typeof Musica !== "undefined") Musica.iniciar();
             alojarCamara();
             mostrarDatosObra(obra);
+            mostrarPoses(obra);
             Artwork.montar(document.getElementById("contenedorLienzo"));
             Artwork.cargar(obra);
             arrancarBucle();
@@ -127,19 +136,35 @@ const Gamelogic = (function () {
             manos: 0,
             pinzaCerrada: false,
             pinzaAbierta: false,
+            pinzaDistancia: null,
+            pinzaManos: 0,
             vientoManos: 0,
             vientoVelocidad: 0,
+            indiceManos: 0,
+            indiceVelocidad: 0,
+            indiceX: null,
+            indiceXManos: 0,
+            indiceY: null,
+            indiceYManos: 0,
+            pazVelocidad: 0,
+            pazVelManos: 0,
+            pazX: null,
+            pazY: null,
+            pazPosManos: 0,
+            palmaX: null,
+            palmaManos: 0,
             palma: false,
-            palmaX: 0,
             point: false,
             corriente: null,
             // Posición del índice (punta del dedo) en el encuadre normalizado
             // de la ventana. La consumen las interacciones propias de cada
             // obra; las obras sin interacciones propias la ignoran.
             indice: null,
-            // Apertura de la pinza (pulgar↔índice, en tamaños de mano). Es
-            // continua, para modular intensidad; null si no hay medición.
-            pinzaDistancia: null,
+            // Apertura cruda de la pinza (pulgar↔índice, en tamaños de mano):
+            // control continuo para las interacciones propias. null si no hay
+            // medición. La `pinzaDistancia` de arriba es el promedio de las
+            // pinzas cerradas que usa la profundidad.
+            pinzaApertura: null,
         };
 
         if (typeof hands === "undefined" || !Array.isArray(hands)) return estado;
@@ -150,6 +175,8 @@ const Gamelogic = (function () {
         const snapshots = Gestures.snapshots();
         const usados = new Array(snapshots.length).fill(false);
         const palmasAbiertas = new Set();
+        const indicesPuntos = new Set();
+        const pazEnPaz = new Set();
         const puntosPaz = [];
         let palmaCuenta = 0;
 
@@ -207,14 +234,83 @@ const Gamelogic = (function () {
                 }
             }
 
+            // Índice en movimiento horizontal: arrastra la niebla. Se mide
+            // el desplazamiento del centro de la mano entre frames (para la
+            // ondulación) y su posición (para las ondas geométricas).
+            if (posture === "point") {
+                indicesPuntos.add(mano);
+
+                const ids = [0, 5, 9, 13, 17];
+                let sumaX = 0;
+                let sumaY = 0;
+                for (const indice of ids) {
+                    sumaX += mano.keypoints[indice].x;
+                    sumaY += mano.keypoints[indice].y;
+                }
+                const xIndice = sumaX / ids.length;
+                const yIndice = sumaY / ids.length;
+
+                estado.indiceX = (estado.indiceX || 0) + xIndice / Math.max(1, video.width);
+                estado.indiceXManos += 1;
+                estado.indiceY = (estado.indiceY || 0) + yIndice / Math.max(1, video.height);
+                estado.indiceYManos += 1;
+
+                const previa = indicesAnteriores.get(mano);
+                if (previa !== undefined) {
+                    estado.indiceVelocidad += (xIndice - previa) / unidad;
+                    estado.indiceManos += 1;
+                }
+                indicesAnteriores.set(mano, xIndice);
+            }
+
+            // Paz en movimiento: se mide el desplazamiento del centro de la
+            // mano entre frames para disparar ondas cromáticas.
+            if (posture === "peace") {
+                pazEnPaz.add(mano);
+
+                const idsPaz = [0, 5, 9, 13, 17];
+                let sumaXPaz = 0;
+                let sumaYPaz = 0;
+                for (const indicePaz of idsPaz) {
+                    sumaXPaz += mano.keypoints[indicePaz].x;
+                    sumaYPaz += mano.keypoints[indicePaz].y;
+                }
+                const xPaz = sumaXPaz / idsPaz.length;
+                const yPaz = sumaYPaz / idsPaz.length;
+
+                const previaPaz = pazAnteriores.get(mano);
+                if (previaPaz) {
+                    estado.pazVelocidad +=
+                        Math.hypot(xPaz - previaPaz.x, yPaz - previaPaz.y) / unidad;
+                    estado.pazVelManos += 1;
+                }
+                pazAnteriores.set(mano, { x: xPaz, y: yPaz });
+
+                estado.pazX = (estado.pazX || 0) + xPaz / Math.max(1, video.width);
+                estado.pazY = (estado.pazY || 0) + yPaz / Math.max(1, video.height);
+                estado.pazPosManos += 1;
+            }
+
             if (snapshot && snapshot.pinzaCerrada) estado.pinzaCerrada = true;
             if (snapshot && snapshot.pinzaAbierta) estado.pinzaAbierta = true;
 
-            // La distancia entre los dedos modula las interacciones continuas.
-            // Se toma la pinza más cerrada entre todas las manos.
+            // Profundidad: la distancia de la pinza CERRADA (canal continuo
+            // de gestures.js) controla el zoom en las obras que lo usan.
+            if (
+                snapshot &&
+                snapshot.pinza === "cerrada" &&
+                typeof snapshot.pinzaDistancia === "number"
+            ) {
+                estado.pinzaDistancia = (estado.pinzaDistancia || 0) + snapshot.pinzaDistancia;
+                estado.pinzaManos += 1;
+            }
+
+            // Apertura cruda: la pinza más cerrada entre todas las manos, sin
+            // importar la histéresis. La usan las interacciones propias (por
+            // ejemplo, la tormenta de Monet), que necesitan el valor continuo.
             if (snapshot && Number.isFinite(snapshot.pinzaDistancia)) {
-                if (estado.pinzaDistancia === null || snapshot.pinzaDistancia < estado.pinzaDistancia) {
-                    estado.pinzaDistancia = snapshot.pinzaDistancia;
+                if (estado.pinzaApertura === null || snapshot.pinzaDistancia < estado.pinzaApertura) {
+                    estado.pinzaApertura = snapshot.pinzaDistancia;
                 }
             }
 
@@ -224,13 +320,19 @@ const Gamelogic = (function () {
             // estricta para no cambiar el comportamiento de otras obras.
             if (posture === "open_palm" || palmaExtendida(mano)) {
                 const ids = [0, 5, 9, 13, 17];
-                let suma = 0;
-                for (const indice of ids) suma += mano.keypoints[indice].x;
-                const xPalma = suma / ids.length;
+                let sumaX = 0;
+                let sumaY = 0;
+                for (const indice of ids) {
+                    sumaX += mano.keypoints[indice].x;
+                    sumaY += mano.keypoints[indice].y;
+                }
+                const xPalma = sumaX / ids.length;
+                const yPalma = sumaY / ids.length;
 
                 estado.palma = true;
                 estado.palmaX += xPalma / unidad;
                 palmaCuenta += 1;
+                estado.palmaManos += 1;
 
                 if (posture === "open_palm") {
                     palmasAbiertas.add(mano);
@@ -251,8 +353,43 @@ const Gamelogic = (function () {
             if (!palmasAbiertas.has(mano)) palmasAnteriores.delete(mano);
         }
 
+        // Lo mismo con las manos que dejaron de señalar con el índice.
+        for (const mano of Array.from(indicesAnteriores.keys())) {
+            if (!indicesPuntos.has(mano)) indicesAnteriores.delete(mano);
+        }
+
+        // Y con las manos que dejaron de estar en paz.
+        for (const mano of Array.from(pazAnteriores.keys())) {
+            if (!pazEnPaz.has(mano)) pazAnteriores.delete(mano);
+        }
+
+        if (estado.pazVelManos > 0) {
+            estado.pazVelocidad /= estado.pazVelManos;
+        }
+
+        if (estado.pazPosManos > 0) {
+            estado.pazX /= estado.pazPosManos;
+            estado.pazY /= estado.pazPosManos;
+        }
+
         if (estado.vientoManos > 0) {
             estado.vientoVelocidad /= estado.vientoManos;
+        }
+
+        if (estado.indiceManos > 0) {
+            estado.indiceVelocidad /= estado.indiceManos;
+        }
+
+        if (estado.indiceXManos > 0) {
+            estado.indiceX /= estado.indiceXManos;
+        }
+
+        if (estado.indiceYManos > 0) {
+            estado.indiceY /= estado.indiceYManos;
+        }
+
+        if (estado.pinzaManos > 0) {
+            estado.pinzaDistancia /= estado.pinzaManos;
         }
 
         if (palmaCuenta > 0) {
@@ -419,18 +556,62 @@ const Gamelogic = (function () {
     function actualizarEstado(estado) {
         if (!nodoEstado) return;
 
-        // La obra manda: lo que no declara no se anuncia ni se ejecuta. Una
-        // obra sin `gestos` conserva los textos históricos completos.
+        const obra = obraActiva;
+
+        // Nombres de cada interacción según la obra abierta (sistema
+        // histórico: obras que no declaran `gestos` propios).
+        const nombrePaz =
+            obra && obra.pazEfecto === "tormenta"
+                ? "Tormenta"
+                : obra && obra.pazEfecto === "ojos"
+                    ? "Cerrar los ojos"
+                    : obra && obra.pazEfecto === "croma"
+                        ? "Onda cromática"
+                        : obra && obra.meteoritos
+                            ? "Lluvia de meteoritos"
+                            : null;
+        const nombrePinza =
+            obra && obra.pinzaEfecto === "profundidad"
+                ? "Profundidad"
+                : obra && obra.pinzaEfecto === "derretir"
+                    ? "Derretir los relojes"
+                    : obra && obra.pinzaEfecto === "lluvia"
+                        ? "Lluvia y colisión"
+                        : obra && Array.isArray(obra.cuerpos) && obra.cuerpos.length > 0
+                            ? "Iluminar"
+                            : null;
+        const nombrePalma =
+            obra && obra.palmEfecto === "atmosfera"
+                ? "Atardecer / Anochecer"
+                : obra && obra.palmEfecto === "sueno"
+                    ? "Universo onírico"
+                    : obra && obra.palmEfecto === "explotar"
+                        ? "Explosión geométrica"
+                        : obra && obra.viento
+                            ? "Viento"
+                            : null;
+        const nombreIndice =
+            obra && obra.indiceEfecto === "disolver"
+                ? "Multiverso"
+                : obra && obra.indiceEfecto === "ondas"
+                    ? "Ondas geométricas"
+                    : obra && obra.indiceEfecto === "despejar"
+                        ? "Despejar niebla"
+                        : obra &&
+                            Array.isArray(obra.zonas) &&
+                            obra.zonas.some((zona) => zona.efecto === "remolino")
+                            ? "Remolinos"
+                            : null;
+
+        // La obra manda: lo que declara en `gestos` se anuncia con sus
+        // textos propios (oleaje, tormenta, corriente, noche). Las obras sin
+        // gestos nuevos conservan los nombres históricos de arriba.
         const gestos = obraActiva && obraActiva.gestos ? obraActiva.gestos : null;
-        const legado = !gestos;
         const efecto = (nombre) => (gestos && gestos[nombre] ? gestos[nombre].efecto : null);
 
-        const molino = legado || efecto("point") === "molino";
         const tormenta = efecto("point") === "tormenta";
-        const meteoros = legado || efecto("peace") === "meteoros";
         const corriente = efecto("peace") === "corriente";
         const noche = efecto("pinza") === "noche";
-        const resplandor = legado || efecto("pinza") === "resplandor";
         const oleaje = efecto("palma") === "oleaje";
 
         let texto;
@@ -451,12 +632,14 @@ const Gamelogic = (function () {
             texto = "Paz · corriente sobre el mar";
         } else if (noche && estado.pinzaCerrada) {
             texto = "Pinza · cae la noche";
-        } else if (molino && estado.molino) {
-            texto = "Índice · molino girando";
-        } else if (meteoros && estado.paz) {
-            texto = "Paz · lluvia de meteoritos";
-        } else if (resplandor && estado.pinzaCerrada) {
-            texto = "Pinza cerrada · encendiendo los cuerpos celestes";
+        } else if (estado.molino && nombreIndice) {
+            texto = `Índice · ${nombreIndice}`;
+        } else if (estado.paz && nombrePaz) {
+            texto = `Paz · ${nombrePaz}`;
+        } else if (estado.pinzaCerrada && nombrePinza) {
+            texto = `Pinza · ${nombrePinza}`;
+        } else if (estado.vientoManos > 0 && nombrePalma) {
+            texto = `Palma · ${nombrePalma}`;
         } else if (oleaje || tormenta || corriente || noche) {
             const pistas = [];
             if (oleaje) pistas.push("palma = mover el mar");
@@ -464,23 +647,26 @@ const Gamelogic = (function () {
             if (corriente) pistas.push("dos dedos = abrir una corriente");
             if (noche) pistas.push("pinza = caer la noche");
             texto = pistas.join(" · ");
-        } else if (
-            molino &&
-            typeof Artwork !== "undefined" &&
-            typeof Artwork.estadoMolino === "function"
-        ) {
-            const estadoArtwork = Artwork.estadoMolino();
-            if (estadoArtwork.girando) {
+        } else if (estado.pinzaCerrada) {
+            texto = "Pinza · sin efecto en esta obra";
+        } else if (estado.paz) {
+            texto = "Paz · sin efecto en esta obra";
+        } else if (estado.molino) {
+            texto = "Índice · sin efecto en esta obra";
+        } else if (estado.vientoManos > 0) {
+            texto = "Palma · sin efecto en esta obra";
+        } else {
+            const molino =
+                typeof Artwork !== "undefined" && typeof Artwork.estadoMolino === "function"
+                    ? Artwork.estadoMolino()
+                    : null;
+            if (molino && molino.girando) {
                 texto = "Molino · girando por inercia";
-            } else if (estadoArtwork.desenrollando) {
+            } else if (molino && molino.desenrollando) {
                 texto = "Molino · volviendo a la forma original";
             } else {
-                texto = "Índice extendido = girar el remolino";
+                texto = "Probá un gesto";
             }
-        } else if (molino) {
-            texto = "Índice extendido = girar el remolino";
-        } else {
-            texto = "Manos en cámara";
         }
 
         if (texto !== ultimoTextoEstado) {
@@ -502,41 +688,43 @@ const Gamelogic = (function () {
         mostrarPoses(obra);
     }
 
-    // --- Descripciones de los gestos ---------------------------------------
-    // Cada obra puede declarar en `poses` qué hace cada gesto. Se guardan los
-    // textos originales para restaurarlos en las obras que no declaran nada.
-
-    const posesOriginales = [];
-
-    function capturarPoses() {
-        for (const nodo of document.querySelectorAll("#experiencia .pose[data-pose]")) {
-            const desc = nodo.querySelector(".pose-desc");
-            posesOriginales.push({
-                nodo,
-                clave: nodo.dataset.pose,
-                desc: desc ? desc.textContent : null,
-                titulo: nodo.getAttribute("title"),
-            });
-        }
-    }
-
+    // Arma el pie de poses según la obra abierta: cada pintura muestra solo
+    // las interacciones que tiene activas.
     function mostrarPoses(obra) {
-        for (const original of posesOriginales) {
-            const dato = obra && obra.poses ? obra.poses[original.clave] : null;
-            const desc = original.nodo.querySelector(".pose-desc");
+        const contenedor = document.querySelector("#experiencia .poses");
+        if (!contenedor) return;
 
-            if (dato) {
-                if (desc && dato.desc) desc.textContent = dato.desc;
-                if (dato.titulo) original.nodo.setAttribute("title", dato.titulo);
-            } else {
-                if (desc && original.desc !== null) desc.textContent = original.desc;
-                if (original.titulo !== null) original.nodo.setAttribute("title", original.titulo);
-            }
+        const poses =
+            Array.isArray(obra.poses) && obra.poses.length > 0
+                ? obra.poses
+                : [{ icono: "✊", nombre: "Puño", desc: "Iniciar" }];
+
+        const fragmento = document.createDocumentFragment();
+
+        for (const pose of poses) {
+            const tarjeta = document.createElement("div");
+            tarjeta.className = "pose";
+            tarjeta.title = pose.nombre;
+
+            const icono = document.createElement("span");
+            icono.className = "pose-icono";
+            icono.setAttribute("aria-hidden", "true");
+            icono.textContent = pose.icono;
+
+            const nombre = document.createElement("span");
+            nombre.className = "pose-nombre";
+            nombre.textContent = pose.nombre;
+
+            const desc = document.createElement("span");
+            desc.className = "pose-desc";
+            desc.textContent = pose.desc;
+
+            tarjeta.append(icono, nombre, desc);
+            fragmento.append(tarjeta);
         }
+
+        contenedor.replaceChildren(fragmento);
     }
-
-    capturarPoses();
-
     // Aloja el canvas de cámara de handpose.js dentro del recuadro del pie.
     // Ojo: p5 agrega ese canvas dentro del <main> de la bienvenida (que queda
     // oculto en otras pantallas), así que se lo busca en todo el documento y

@@ -52,6 +52,28 @@
 //   efectos: "monet"
 //   sol: { x, y, radio }
 // Las obras sin `efectos` no ejecutan ningún código de interacción propio.
+//
+// Los gestos globales de la palma (viento) y de la paz (meteoritos) se
+// activan por obra con los campos `viento: true` y `meteoritos: true`.
+// Sin esos campos, el gesto queda inactivo en esa obra: así cada pintura
+// puede darle a los mismos gestos funciones distintas.
+//
+// Las tarjetas del pie de la experiencia se definen por obra en `poses`:
+//   { icono, nombre, desc }
+// El pie se arma según la obra abierta, mostrando solo las interacciones
+// que esa pintura tiene activas.
+//
+// La pinza puede tener dos funciones según la obra: si la obra define
+// `pinzaEfecto: "profundidad"`, la distancia entre los dedos controla la
+// profundidad visual; si no, la pinza cerrada enciende los `cuerpos`.
+//
+// El aura del personaje se define en `personaje`: un PNG del mismo tamaño
+// que la pintura con fondo transparente y solo el personaje visible. Al
+// hacer zoom, el personaje se ilumina y se genera un halo difuminado que
+// sigue su silueta.
+//
+// La palma puede cambiar la atmósfera de la obra con `palmEfecto:
+// "atmósfera"`: la altura de la mano recorre despejado, nublado y oscuro.
 
 const CatalogoObras = [
     {
@@ -61,6 +83,15 @@ const CatalogoObras = [
         anio: 1889,
         tema: "noche",
         archivo: "obras/noche-estrellada.jpg",
+        viento: true,
+        meteoritos: true,
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "✋", nombre: "Palma", desc: "Viento" },
+            { icono: "☝️", nombre: "Índice", desc: "Girar remolinos" },
+            { icono: "✌️", nombre: "Paz", desc: "Lluvia de meteoritos" },
+            { icono: "🤏", nombre: "Pinza", desc: "Iluminar la noche" },
+        ],
         cuerpos: [
             { nombre: "luna creciente", x: 1505, y: 180, radio: 130 },
             { nombre: "estrella 1", x: 85, y: 289, radio: 58 },
@@ -136,6 +167,22 @@ const CatalogoObras = [
         anio: 1818,
         tema: "caminante",
         archivo: "obras/el-caminante-sobre-el-mar-de-nubes.jpg",
+        pazEfecto: "tormenta",
+        pinzaEfecto: "profundidad",
+        palmEfecto: "atmosfera",
+        indiceEfecto: "despejar",
+        luces: [],
+        fondo: "obras/fondo-caminante.png",
+        baseAtmosfera: "obras/nofondo-caminante.png",
+        personaje: "obras/personaje-caminante.png",
+        despeje: "obras/caminante-relleno.png",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "☝️", nombre: "Índice", desc: "Despejar la niebla" },
+            { icono: "✋", nombre: "Palma", desc: "Atardecer / Anochecer" },
+            { icono: "✌️", nombre: "Paz", desc: "Tormenta" },
+            { icono: "🤏", nombre: "Pinza", desc: "Profundidad" },
+        ],
         zonas: [],
     },
     {
@@ -145,6 +192,9 @@ const CatalogoObras = [
         anio: 1831,
         tema: "ola",
         archivo: "obras/la-gran-ola-de-kanagawa.jpg",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+        ],
         mascara: "obras/la-gran-ola-mascara.png",
         gestos: {
             // La palma abierta arrastra el mar y los barcos en horizontal.
@@ -250,26 +300,14 @@ const CatalogoObras = [
             { x: 388, y: 747, ancho: 172, alto: 62, fase: 1.9 },
             { x: 688, y: 805, ancho: 165, alto: 145, fase: 3.4 },
         ],
-        // Qué hace cada gesto en esta obra. El pie de la experiencia muestra
-        // estas descripciones; las obras sin `poses` conservan las suyas.
-        poses: {
-            indice: {
-                desc: "El atardecer",
-                titulo: "Índice extendido: el sol se pone detrás del horizonte y la escena anochece",
-            },
-            paz: {
-                desc: "El cielo se mueve",
-                titulo: "Dos dedos: las nubes y las corrientes de aire recorren el cielo",
-            },
-            pinza: {
-                desc: "Tormenta eléctrica",
-                titulo: "Pinza: diluvio, relámpagos y un mar agitado",
-            },
-            palma: {
-                desc: "El mar cobra vida",
-                titulo: "Palma abierta: olas continuas, el reflejo se quiebra y los barcos flotan",
-            },
-        },
+        // Tarjetas del pie para esta obra (mismo formato que las demás).
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "✋", nombre: "Palma", desc: "El mar cobra vida" },
+            { icono: "☝️", nombre: "Índice", desc: "El atardecer" },
+            { icono: "✌️", nombre: "Paz", desc: "El cielo se mueve" },
+            { icono: "🤏", nombre: "Pinza", desc: "Tormenta eléctrica" },
+        ],
         zonas: [],
     },
     {
@@ -279,7 +317,49 @@ const CatalogoObras = [
         anio: 1931,
         tema: "persistencia",
         archivo: "obras/la-persistencia-de-la-memoria.jpg",
-        zonas: [],
+        pazEfecto: "ojos",
+        ojos: "obras/ojos-efecto.mp4",
+        palmEfecto: "sueno",
+        indiceEfecto: "disolver",
+        manecillas: "obras/persistencia-manecillas.png",
+        relojes: "obras/persistencia-relojes.png",
+        pinzaEfecto: "derretir",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "☝️", nombre: "Índice", desc: "Multiverso" },
+            { icono: "✋", nombre: "Palma", desc: "Universo onírico" },
+            { icono: "✌️", nombre: "Paz", desc: "Cerrar los ojos" },
+            { icono: "🤏", nombre: "Pinza", desc: "Derretir los relojes" },
+        ],
+        zonas: [
+            {
+                nombre: "reloj colgado",
+                x: 0.355,
+                y: 0.32,
+                radio: 0.12,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+            {
+                nombre: "reloj del mantel",
+                x: 0.215,
+                y: 0.66,
+                radio: 0.13,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+            {
+                nombre: "reloj del rostro",
+                x: 0.52,
+                y: 0.615,
+                radio: 0.08,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+        ],
     },
     {
         id: "composicion-viii",
@@ -288,6 +368,27 @@ const CatalogoObras = [
         anio: 1923,
         tema: "composicion",
         archivo: "obras/composicion-8.jpg",
-        zonas: [],
+        indiceEfecto: "ondas",
+        palmEfecto: "explotar",
+        pazEfecto: "croma",
+        pinzaEfecto: "lluvia",
+        poses: [
+            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
+            { icono: "☝️", nombre: "Índice", desc: "Círculos que crecen" },
+            { icono: "✋", nombre: "Palma", desc: "Explosión geométrica" },
+            { icono: "✌️", nombre: "Paz", desc: "Onda cromática" },
+            { icono: "🤏", nombre: "Pinza", desc: "Lluvia y colisión" },
+        ],
+        zonas: [
+            { nombre: "circulo amarillo", x: 0.095, y: 0.68, radio: 0.075, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo azul", x: 0.37, y: 0.79, radio: 0.07, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo violeta 2", x: 0.72, y: 0.73, radio: 0.07, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo gris", x: 0.82, y: 0.78, radio: 0.09, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo turquesa", x: 0.75, y: 0.17, radio: 0.055, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo naranja", x: 0.69, y: 0.19, radio: 0.04, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo anillo", x: 0.48, y: 0.3, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo azul chico", x: 0.76, y: 0.38, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo rosa", x: 0.83, y: 0.47, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+        ],
     },
 ];
