@@ -110,18 +110,23 @@ function renderizarPosesExperiencia(obra) {
     const contenedor = document.getElementById("posesGestos");
     if (!contenedor) return;
 
-    let datos;
+    let datos = [];
 
     if (obra && obra.gestos) {
         datos = ORDEN_GESTOS_PIE.map(function (gesto) {
             const config = obra.gestos[gesto];
             return config ? POSES_POR_EFECTO[config.efecto] : null;
         }).filter(Boolean);
-    } else if (obra && Array.isArray(obra.poses) && obra.poses.length > 0) {
-        // Obra sin contrato de gestos: conserva sus tarjetas propias.
-        datos = obra.poses;
-    } else {
-        datos = POSES_LEGADO;
+    }
+
+    // Sin tarjetas del contrato (obra sin `gestos`, o con un `efecto` que no
+    // existe): se usan las tarjetas propias y, si tampoco hay, la leyenda
+    // histórica. Nunca un pie vacío.
+    if (datos.length === 0) {
+        datos =
+            obra && Array.isArray(obra.poses) && obra.poses.length > 0
+                ? obra.poses
+                : POSES_LEGADO;
     }
 
     contenedor.replaceChildren(...datos.map(crearPose));
