@@ -152,8 +152,10 @@ const Gamelogic = (function () {
             pazY: null,
             pazPosManos: 0,
             palmaX: null,
-            palmaY: null,
             palmaManos: 0,
+            palma: false,
+            point: false,
+            corriente: null,
         };
 
         if (typeof hands === "undefined" || !Array.isArray(hands)) return estado;
@@ -166,6 +168,8 @@ const Gamelogic = (function () {
         const palmasAbiertas = new Set();
         const indicesPuntos = new Set();
         const pazEnPaz = new Set();
+        const puntosPaz = [];
+        let palmaCuenta = 0;
 
         for (const mano of hands) {
             if (!mano || !Array.isArray(mano.keypoints) || mano.keypoints.length < 21) continue;
@@ -188,8 +192,21 @@ const Gamelogic = (function () {
 
             estado.manos += 1;
 
-            if (posture === "point") estado.molino = true;
-            if (posture === "peace") estado.paz = true;
+            if (posture === "point") {
+                estado.molino = true;
+                estado.point = true;
+            }
+            if (posture === "peace") {
+                estado.paz = true;
+
+                // Centro de la V (índice + medio) en coordenadas del cuadro:
+                // con una mano en paz, la corriente se abre ahí.
+                const kp = mano.keypoints;
+                puntosPaz.push({
+                    x: (kp[8].x + kp[12].x) / 2 / video.width,
+                    y: (kp[8].y + kp[12].y) / 2 / video.height,
+                });
+            }
 
             // Índice en movimiento horizontal: arrastra la niebla. Se mide
             // el desplazamiento del centro de la mano entre frames (para la
@@ -262,13 +279,11 @@ const Gamelogic = (function () {
                 estado.pinzaManos += 1;
             }
 
-            // Viento: solo con la palma abierta (la pinza, la paz y el índice
-            // nunca clasifican como open_palm). Se mide el desplazamiento
-            // horizontal del centro de la palma entre frames, en fracciones
-            // del lado mayor del video.
-            if (posture === "open_palm") {
-                palmasAbiertas.add(mano);
-
+            // Palma: el reconocedor exige el pulgar desplegado y con el
+            // modelo lite a veces no llega. Para el oleaje se acepta la mano
+            // abierta completa; el viento sigue usando sólo la clasificación
+            // estricta para no cambiar el comportamiento de otras obras.
+            if (posture === "open_palm" || palmaExtendida(mano)) {
                 const ids = [0, 5, 9, 13, 17];
                 let sumaX = 0;
                 let sumaY = 0;
@@ -279,19 +294,21 @@ const Gamelogic = (function () {
                 const xPalma = sumaX / ids.length;
                 const yPalma = sumaY / ids.length;
 
-                const previa = palmasAnteriores.get(mano);
-                if (previa !== undefined) {
-                    estado.vientoVelocidad += (xPalma - previa) / unidad;
-                    estado.vientoManos += 1;
-                }
-                palmasAnteriores.set(mano, xPalma);
-
-                // Posición promedio de las palmas abiertas: horizontal para
-                // la hora del día, vertical como referencia.
-                estado.palmaX =
-                    (estado.palmaX || 0) + xPalma / Math.max(1, video.width);
-                estado.palmaY = (estado.palmaY || 0) + yPalma / unidad;
+                estado.palma = true;
+                estado.palmaX += xPalma / unidad;
+                palmaCuenta += 1;
                 estado.palmaManos += 1;
+
+                if (posture === "open_palm") {
+                    palmasAbiertas.add(mano);
+
+                    const previa = palmasAnteriores.get(mano);
+                    if (previa !== undefined) {
+                        estado.vientoVelocidad += (xPalma - previa) / unidad;
+                        estado.vientoManos += 1;
+                    }
+                    palmasAnteriores.set(mano, xPalma);
+                }
             }
         }
 
@@ -336,13 +353,30 @@ const Gamelogic = (function () {
             estado.indiceY /= estado.indiceYManos;
         }
 
-        if (estado.palmaManos > 0) {
-            estado.palmaY /= estado.palmaManos;
-            estado.palmaX /= estado.palmaManos;
-        }
-
         if (estado.pinzaManos > 0) {
             estado.pinzaDistancia /= estado.pinzaManos;
+        }
+
+        if (palmaCuenta > 0) {
+            estado.palmaX /= palmaCuenta;
+        }
+
+        // Una mano en paz abre la corriente: el canal se centra en la mano y
+        // corre de izquierda a derecha. Se acota a la franja del mar para
+        // que no caiga en el cielo si la mano va alta.
+        if (puntosPaz.length >= 1) {
+            puntosPaz.sort((a, b) => a.x - b.x);
+            const x = Math.max(0.05, Math.min(0.95, puntosPaz[0].x));
+            // La franja de las barcas: la corriente siempre pasa por ahí.
+            const y = Math.max(0.74, Math.min(0.86, puntosPaz[0].y));
+            const medio = 0.4;
+
+            estado.corriente = {
+                ax: Math.max(0, x - medio),
+                ay: y,
+                bx: Math.min(1, x + medio),
+                by: y,
+            };
         }
 
         return estado;
@@ -353,6 +387,27 @@ const Gamelogic = (function () {
     // supera los umbrales estrictos de gestures.js. Solo actúa cuando no
     // hay clasificación y exige que el índice sea el ÚNICO dedo extendido.
     function indiceExtendido(mano) {
+        const r = dedosLargos(mano);
+        return r[0] >= 1.55 && r[1] < 1.55 && r[2] < 1.55 && r[3] < 1.55;
+    }
+
+    // Respaldo de la paz: índice y medio extendidos, los otros flexionados.
+    function pazExtendida(mano) {
+        const r = dedosLargos(mano);
+        return r[0] >= 1.5 && r[1] >= 1.5 && r[2] < 1.5 && r[3] < 1.5;
+    }
+
+    // Respaldo de la palma: los cuatro dedos largos extendidos. El pulgar
+    // no participa, igual que en el puño: lo que importa es la mano abierta.
+    function palmaExtendida(mano) {
+        const r = dedosLargos(mano);
+        return r[0] >= 1.5 && r[1] >= 1.5 && r[2] >= 1.5 && r[3] >= 1.5;
+    }
+
+    // Proporción de extensión de cada dedo largo (índice, medio, anular,
+    // meñique): punta→base dividido nudillo→base, en tamaños de mano. Es
+    // scale-free y es el mismo criterio para los tres respaldos.
+    function dedosLargos(mano) {
         const keypoints = mano.keypoints;
         const dedos = [
             { mcp: 5, pip: 6, tip: 8 },
@@ -360,9 +415,7 @@ const Gamelogic = (function () {
             { mcp: 13, pip: 14, tip: 16 },
             { mcp: 17, pip: 18, tip: 20 },
         ];
-
-        let extendidos = 0;
-        let esIndice = false;
+        const proporcion = [0, 0, 0, 0];
 
         for (let i = 0; i < dedos.length; i += 1) {
             const dedo = dedos[i];
@@ -375,46 +428,10 @@ const Gamelogic = (function () {
                 keypoints[dedo.tip].x - keypoints[dedo.mcp].x,
                 keypoints[dedo.tip].y - keypoints[dedo.mcp].y
             );
-            if (largo / base >= 1.55) {
-                extendidos += 1;
-                if (i === 0) esIndice = true;
-            }
+            proporcion[i] = largo / base;
         }
 
-        return extendidos === 1 && esIndice;
-    }
-
-    // Respaldo de la paz: índice y medio extendidos, los otros flexionados.
-    function pazExtendida(mano) {
-        const keypoints = mano.keypoints;
-        const dedos = [
-            { mcp: 5, pip: 6, tip: 8, nombre: "indice" },
-            { mcp: 9, pip: 10, tip: 12, nombre: "medio" },
-            { mcp: 13, pip: 14, tip: 16, nombre: "anular" },
-            { mcp: 17, pip: 18, tip: 20, nombre: "menique" },
-        ];
-
-        let indice = false;
-        let medio = false;
-        let otros = false;
-
-        for (const dedo of dedos) {
-            const base = Math.hypot(
-                keypoints[dedo.pip].x - keypoints[dedo.mcp].x,
-                keypoints[dedo.pip].y - keypoints[dedo.mcp].y
-            );
-            if (base < 1e-6) continue;
-            const largo = Math.hypot(
-                keypoints[dedo.tip].x - keypoints[dedo.mcp].x,
-                keypoints[dedo.tip].y - keypoints[dedo.mcp].y
-            );
-            const extendido = largo / base >= 1.5;
-            if (dedo.nombre === "indice") indice = extendido;
-            else if (dedo.nombre === "medio") medio = extendido;
-            else if (extendido) otros = true;
-        }
-
-        return indice && medio && !otros;
+        return proporcion;
     }
 
     // Empareja una mano con su snapshot por la posición del ancla (uno a
@@ -450,7 +467,8 @@ const Gamelogic = (function () {
 
         const obra = obraActiva;
 
-        // Nombres de cada interacción según la obra abierta.
+        // Nombres de cada interacción según la obra abierta (sistema
+        // histórico: obras que no declaran `gestos` propios).
         const nombrePaz =
             obra && obra.pazEfecto === "tormenta"
                 ? "Tormenta"
@@ -494,16 +512,35 @@ const Gamelogic = (function () {
                             ? "Remolinos"
                             : null;
 
+        // La obra manda: lo que declara en `gestos` se anuncia con sus
+        // textos propios (oleaje, tormenta, corriente, noche). Las obras sin
+        // gestos nuevos conservan los nombres históricos de arriba.
+        const gestos = obraActiva && obraActiva.gestos ? obraActiva.gestos : null;
+        const efecto = (nombre) => (gestos && gestos[nombre] ? gestos[nombre].efecto : null);
+
+        const tormenta = efecto("point") === "tormenta";
+        const corriente = efecto("peace") === "corriente";
+        const noche = efecto("pinza") === "noche";
+        const oleaje = efecto("palma") === "oleaje";
+
         let texto;
         if (estado.manos === 0) {
-            const molino =
+            const estadoArtwork =
                 typeof Artwork !== "undefined" && typeof Artwork.estadoMolino === "function"
                     ? Artwork.estadoMolino()
                     : null;
             texto =
-                molino && molino.desenrollando
+                estadoArtwork && estadoArtwork.desenrollando
                     ? "Sin manos · volviendo a la forma original"
                     : "Sin manos en cámara";
+        } else if (oleaje && estado.palma) {
+            texto = "Palma abierta · el mar acompaña el movimiento";
+        } else if (tormenta && estado.point) {
+            texto = "Índice · tormenta sobre la obra";
+        } else if (corriente && estado.corriente) {
+            texto = "Paz · corriente sobre el mar";
+        } else if (noche && estado.pinzaCerrada) {
+            texto = "Pinza · cae la noche";
         } else if (estado.molino && nombreIndice) {
             texto = `Índice · ${nombreIndice}`;
         } else if (estado.paz && nombrePaz) {
@@ -512,6 +549,13 @@ const Gamelogic = (function () {
             texto = `Pinza · ${nombrePinza}`;
         } else if (estado.vientoManos > 0 && nombrePalma) {
             texto = `Palma · ${nombrePalma}`;
+        } else if (oleaje || tormenta || corriente || noche) {
+            const pistas = [];
+            if (oleaje) pistas.push("palma = mover el mar");
+            if (tormenta) pistas.push("índice = desatar la tormenta");
+            if (corriente) pistas.push("dos dedos = abrir una corriente");
+            if (noche) pistas.push("pinza = caer la noche");
+            texto = pistas.join(" · ");
         } else if (estado.pinzaCerrada) {
             texto = "Pinza · sin efecto en esta obra";
         } else if (estado.paz) {
