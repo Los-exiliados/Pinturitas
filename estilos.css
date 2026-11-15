@@ -1247,6 +1247,12 @@ body {
     gap: clamp(12px, 1.6vw, 32px);
 }
 
+/* Los gestos de la obra se reemplazan según la pintura; el contenedor no
+   debe meter una caja propia en el flex del pie. */
+.poses-gestos {
+    display: contents;
+}
+
 .pose {
     display: flex;
     flex-direction: column;
