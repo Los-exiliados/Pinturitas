@@ -51,12 +51,7 @@
   // Dedos largos: el ángulo en el PIP distingue extendido de flexionado.
   const LONG_FINGERS = [
     { key: "index", mcp: LM.INDEX_MCP, pip: LM.INDEX_PIP, tip: LM.INDEX_TIP },
-    {
-      key: "middle",
-      mcp: LM.MIDDLE_MCP,
-      pip: LM.MIDDLE_PIP,
-      tip: LM.MIDDLE_TIP,
-    },
+    { key: "middle", mcp: LM.MIDDLE_MCP, pip: LM.MIDDLE_PIP, tip: LM.MIDDLE_TIP },
     { key: "ring", mcp: LM.RING_MCP, pip: LM.RING_PIP, tip: LM.RING_TIP },
     { key: "pinky", mcp: LM.PINKY_MCP, pip: LM.PINKY_PIP, tip: LM.PINKY_TIP },
   ];
@@ -68,14 +63,21 @@
 
   const TUNING = Object.freeze({
     // Clasificación de dedos con histéresis.
-    EXTENDED_ANGLE: 150, // por encima de esto, dedo extendido
-    CURLED_ANGLE: 105, // por debajo de esto, dedo flexionado
+    EXTENDED_ANGLE: 140, // por encima de esto, dedo extendido
+    CURLED_ANGLE: 110, // por debajo de esto, dedo flexionado
     // El pulgar se considera abierto si su punta se aleja de la palma.
-    THUMB_OPEN_REACH: 0.95,
+    THUMB_OPEN_REACH: 0.8,
+
+    // Señal secundaria: distancia punta-muñeca / nudillo-muñeca. Un dedo
+    // estirado da ~1.3-1.5; uno flexionado, ~0.8. Corrige los ángulos que el
+    // modelo lite mide de menos sin abrir la puerta a falsos positivos.
+    TIP_RATIO_EXTENDED: 1.28,
+    TIP_RATIO_CURLED: 1.15,
+    TIP_RATIO_STRONG: 1.32,
 
     // Tiempos de estabilidad para las posturas.
-    STABLE_MS: 120,
-    RELEASE_MS: 200,
+    STABLE_MS: 100,
+    RELEASE_MS: 170,
 
     // Ciclo de vida del seguimiento.
     MISS_END_MS: 250, // sin ver la mano: se cierra el gesto activo
@@ -132,29 +134,38 @@
   // La banda intermedia conserva la clasificación anterior: eso evita que un
   // dedo parpadee entre extendido y flexionado por ruido del modelo.
 
-  function resolveBend(angle, previous) {
+  // `ratio` es la señal de distancia; `null` para el pulgar, que se mide sólo
+  // por ángulo.
+  function resolveBend(angle, ratio, previous) {
     if (angle >= TUNING.EXTENDED_ANGLE) return "extended";
-    if (angle <= TUNING.CURLED_ANGLE) return "curled";
+    if (angle <= TUNING.CURLED_ANGLE) {
+      // Ángulo chico pero punta muy lejos de la muñeca: el modelo midió mal
+      // la articulación y el dedo en realidad está estirado.
+      if (ratio !== null && ratio >= TUNING.TIP_RATIO_STRONG) return "extended";
+      return "curled";
+    }
+    if (ratio !== null) {
+      if (ratio >= TUNING.TIP_RATIO_EXTENDED) return "extended";
+      if (ratio <= TUNING.TIP_RATIO_CURLED) return "curled";
+    }
     if (previous === "extended" || previous === "curled") return previous;
     const middle = (TUNING.EXTENDED_ANGLE + TUNING.CURLED_ANGLE) / 2;
     return angle >= middle ? "extended" : "curled";
   }
 
   function updateFingers(keypoints, memory) {
+    const wrist = keypoints[LM.WRIST];
+
     for (const finger of LONG_FINGERS) {
-      const angle = angleAt(
-        keypoints[finger.mcp],
-        keypoints[finger.pip],
-        keypoints[finger.tip],
-      );
-      memory[finger.key] = resolveBend(angle, memory[finger.key]);
+      const angle = angleAt(keypoints[finger.mcp], keypoints[finger.pip], keypoints[finger.tip]);
+      const tipDist = dist(keypoints[finger.tip], wrist);
+      const pipDist = dist(keypoints[finger.pip], wrist);
+      const ratio = pipDist > 1e-6 ? tipDist / pipDist : 1;
+      memory[finger.key] = resolveBend(angle, ratio, memory[finger.key]);
     }
-    const thumbAngle = angleAt(
-      keypoints[LM.WRIST],
-      keypoints[LM.THUMB_CMC],
-      keypoints[LM.THUMB_MCP],
-    );
-    memory.thumb = resolveBend(thumbAngle, memory.thumb);
+
+    const thumbAngle = angleAt(keypoints[LM.WRIST], keypoints[LM.THUMB_CMC], keypoints[LM.THUMB_MCP]);
+    memory.thumb = resolveBend(thumbAngle, null, memory.thumb);
     return memory;
   }
 
@@ -173,6 +184,10 @@
     const thumbTip = keypoints[LM.THUMB_TIP];
 
     const thumbReach = dist(thumbTip, palm) / size;
+    // La distancia de la punta del pulgar a la palma es más fiable que el
+    // ángulo de la base: el pulgar recogido también puede dar un ángulo
+    // abierto. Se usa sólo la distancia.
+    const thumbAbierto = thumbReach >= TUNING.THUMB_OPEN_REACH;
 
     // Puño: los cuatro dedos largos flexionados (el pulgar no se exige).
     if (extendedCount === 0) return "fist";
@@ -189,10 +204,17 @@
       return "peace";
     }
 
-    // Palma abierta: los cuatro largos extendidos y el pulgar desplegado.
+    // Palma abierta con los cuatro largos: el pulgar no decide, porque una
+    // mano abierta real muchas veces lo tiene junto al índice.
+    if (extendedCount === 4) return "open_palm";
+
+    // Con tres largos (el meñique suele perderse) se exige el pulgar
+    // desplegado para no confundirla con la paz.
     if (
-      extendedCount === 4 &&
-      (fingers.thumb === "extended" || thumbReach >= TUNING.THUMB_OPEN_REACH)
+      extendedCount === 3 &&
+      fingers.index === "extended" &&
+      fingers.middle === "extended" &&
+      thumbAbierto
     ) {
       return "open_palm";
     }
@@ -215,8 +237,7 @@
   });
 
   function actualizarPinza(state, keypoints, size, now) {
-    const distancia =
-      dist(keypoints[LM.THUMB_TIP], keypoints[LM.INDEX_TIP]) / size;
+    const distancia = dist(keypoints[LM.THUMB_TIP], keypoints[LM.INDEX_TIP]) / size;
 
     // Histéresis: entre los dos umbrales se conserva el estado actual.
     let candidata = state.pinza;
@@ -229,10 +250,7 @@
       state.pinzaCandidataDesde = now;
     }
 
-    if (
-      now - state.pinzaCandidataDesde >= PINZA.ESTABLE_MS &&
-      state.pinza !== state.pinzaCandidata
-    ) {
+    if (now - state.pinzaCandidataDesde >= PINZA.ESTABLE_MS && state.pinza !== state.pinzaCandidata) {
       state.pinza = state.pinzaCandidata;
       state.pinzaDesde = now;
     }
@@ -252,13 +270,7 @@
       anchorX: 0,
       anchorY: 0,
       position: { x: 0, y: 0 },
-      fingers: {
-        thumb: null,
-        index: null,
-        middle: null,
-        ring: null,
-        pinky: null,
-      },
+      fingers: { thumb: null, index: null, middle: null, ring: null, pinky: null },
       candidate: null,
       candidateAt: 0,
       posture: null,
@@ -282,10 +294,7 @@
     for (const [object, state] of states) {
       if (claimed.has(state)) continue;
       if (now - state.lastSeen > TUNING.TRACK_TTL_MS) continue;
-      const d = Math.hypot(
-        hand.anchorX - state.anchorX,
-        hand.anchorY - state.anchorY,
-      );
+      const d = Math.hypot(hand.anchorX - state.anchorX, hand.anchorY - state.anchorY);
       if (d < bestDistance) {
         bestDistance = d;
         best = { object, state };
@@ -364,16 +373,10 @@
     }
 
     if (state.candidate !== null) {
-      if (
-        now - state.candidateAt >= TUNING.STABLE_MS &&
-        state.posture !== state.candidate
-      ) {
+      if (now - state.candidateAt >= TUNING.STABLE_MS && state.posture !== state.candidate) {
         state.posture = state.candidate;
       }
-    } else if (
-      state.posture !== null &&
-      now - state.candidateAt >= TUNING.RELEASE_MS
-    ) {
+    } else if (state.posture !== null && now - state.candidateAt >= TUNING.RELEASE_MS) {
       state.posture = null;
     }
 
@@ -383,10 +386,7 @@
     if (state.active) {
       if (state.active.expiresAt !== null && now >= state.active.expiresAt) {
         endActive(state, now);
-      } else if (
-        state.active.kind === "posture" &&
-        state.posture !== state.active.gesture
-      ) {
+      } else if (state.active.kind === "posture" && state.posture !== state.active.gesture) {
         endActive(state, now);
       }
     }
@@ -432,12 +432,7 @@
 
   function frameUnit() {
     try {
-      if (
-        typeof video !== "undefined" &&
-        video &&
-        video.width > 0 &&
-        video.height > 0
-      ) {
+      if (typeof video !== "undefined" && video && video.width > 0 && video.height > 0) {
         return Math.max(video.width, video.height);
       }
     } catch (error) {
@@ -447,10 +442,7 @@
   }
 
   function clock() {
-    if (
-      typeof performance !== "undefined" &&
-      typeof performance.now === "function"
-    ) {
+    if (typeof performance !== "undefined" && typeof performance.now === "function") {
       return performance.now();
     }
     return Date.now();
@@ -470,8 +462,7 @@
 
     for (let index = 0; index < input.length; index += 1) {
       const hand = input[index];
-      if (!hand || !Array.isArray(hand.keypoints) || hand.keypoints.length < 21)
-        continue;
+      if (!hand || !Array.isArray(hand.keypoints) || hand.keypoints.length < 21) continue;
 
       const size = handSize(hand.keypoints);
       if (!size) continue;

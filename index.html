@@ -197,29 +197,30 @@
             </div>
 
             <div class="poses">
-                <div id="posesGestos" class="poses-gestos">
-                    <div class="pose" title="Palma abierta moviéndose de lado: desplaza las pinceladas del cielo">
-                        <span class="pose-icono" aria-hidden="true">✋</span>
-                        <span class="pose-nombre">Palma</span>
-                        <span class="pose-desc">Mover el cielo</span>
-                    </div>
-                    <div class="pose" title="Índice extendido: los remolinos giran como un molino">
-                        <span class="pose-icono" aria-hidden="true">☝️</span>
-                        <span class="pose-nombre">Índice</span>
-                        <span class="pose-desc">Girar los remolinos</span>
-                    </div>
-                    <div class="pose" title="Paz: índice y medio extendidos">
-                        <span class="pose-icono" aria-hidden="true">✌️</span>
-                        <span class="pose-nombre">Paz</span>
-                        <span class="pose-desc">Lluvia de meteoritos</span>
-                    </div>
-                    <div class="pose" title="Pinza cerrada: pulgar e índice juntos encienden los cuerpos celestes">
-                        <span class="pose-icono" aria-hidden="true">🤏</span>
-                        <span class="pose-nombre">Pinza</span>
-                        <span class="pose-desc">Encender los cuerpos</span>
-                    </div>
+<div id="posesGestos" class="poses-gestos">
+    <div class="pose" data-pose="palma" title="Palma abierta moviéndose de lado: desplaza las pinceladas del cielo">
+        <span class="pose-icono" aria-hidden="true">✋</span>
+        <span class="pose-nombre">Palma</span>
+        <span class="pose-desc">Mover el cielo</span>
+    </div>
+    <div class="pose" data-pose="indice" title="Índice extendido: los remolinos giran como un molino">
+        <span class="pose-icono" aria-hidden="true">☝️</span>
+        <span class="pose-nombre">Índice</span>
+        <span class="pose-desc">Girar los remolinos</span>
+    </div>
+    <div class="pose" data-pose="paz" title="Paz: índice y medio extendidos">
+        <span class="pose-icono" aria-hidden="true">✌️</span>
+        <span class="pose-nombre">Paz</span>
+        <span class="pose-desc">Lluvia de meteoritos</span>
+    </div>
+    <div class="pose" data-pose="pinza" title="Pinza cerrada: pulgar e índice juntos encienden los cuerpos celestes">
+        <span class="pose-icono" aria-hidden="true">🤏</span>
+        <span class="pose-nombre">Pinza</span>
+        <span class="pose-desc">Encender los cuerpos</span>
+    </div>
+</div>
                 </div>
-                <div class="pose pose--salida" title="Pulgar hacia abajo sostenido: salir de la obra y volver a la galería">
+                <div class="pose pose--salida" data-pose="salida" title="Pulgar hacia abajo sostenido: salir de la obra y volver a la galería">
                     <span class="pose-icono" aria-hidden="true">👎</span>
                     <span class="pose-nombre">Pulgar abajo</span>
                     <span class="pose-desc">Volver</span>
@@ -277,6 +278,9 @@
 
     <!-- Catálogo de obras e imágenes -->
     <script src="js/obras.js"></script>
+
+    <!-- Interacciones propias por obra (hoy: Monet) -->
+    <script src="js/monet.js"></script>
 
     <!-- Motor visual (lienzo de la pintura) -->
     <script src="js/artwork.js"></script>

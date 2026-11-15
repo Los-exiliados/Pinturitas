@@ -104,13 +104,34 @@ function crearPose(datos) {
 }
 
 // Reemplaza la leyenda del pie de la experiencia con la de la obra elegida.
+// `poses` (texto propio de la obra) tiene prioridad sobre `gestos` (efecto
+// genérico); las obras sin ninguno conservan la leyenda histórica.
+const CLAVE_POSES = { palma: "palma", point: "indice", peace: "paz", pinza: "pinza" };
+const ICONO_POSES = {
+    palma: POSES_POR_EFECTO.viento,
+    point: POSES_POR_EFECTO.molino,
+    peace: POSES_POR_EFECTO.meteoros,
+    pinza: POSES_POR_EFECTO.resplandor,
+};
+
 function renderizarPosesExperiencia(obra) {
     const contenedor = document.getElementById("posesGestos");
     if (!contenedor) return;
 
     let datos;
 
-    if (obra && obra.gestos) {
+    if (obra && obra.poses) {
+        datos = ORDEN_GESTOS_PIE.map(function (gesto) {
+            const dato = obra.poses[CLAVE_POSES[gesto]];
+            if (!dato) return null;
+            return {
+                icono: ICONO_POSES[gesto].icono,
+                nombre: ICONO_POSES[gesto].nombre,
+                desc: dato.desc,
+                title: dato.titulo,
+            };
+        }).filter(Boolean);
+    } else if (obra && obra.gestos) {
         datos = ORDEN_GESTOS_PIE.map(function (gesto) {
             const config = obra.gestos[gesto];
             return config ? POSES_POR_EFECTO[config.efecto] : null;

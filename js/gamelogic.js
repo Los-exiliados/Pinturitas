@@ -133,6 +133,13 @@ const Gamelogic = (function () {
             palmaX: 0,
             point: false,
             corriente: null,
+            // Posición del índice (punta del dedo) en el encuadre normalizado
+            // de la ventana. La consumen las interacciones propias de cada
+            // obra; las obras sin interacciones propias la ignoran.
+            indice: null,
+            // Apertura de la pinza (pulgar↔índice, en tamaños de mano). Es
+            // continua, para modular intensidad; null si no hay medición.
+            pinzaDistancia: null,
         };
 
         if (typeof hands === "undefined" || !Array.isArray(hands)) return estado;
@@ -162,6 +169,8 @@ const Gamelogic = (function () {
                     posture = "peace";
                 } else if (posture === null && indiceExtendido(mano)) {
                     posture = "point";
+                } else if (posture === null && manoAbierta(mano)) {
+                    posture = "open_palm";
                 }
             }
 
@@ -183,8 +192,31 @@ const Gamelogic = (function () {
                 });
             }
 
+            // Posición del índice para las interacciones propias de la obra.
+            // Es un dato derivado de la postura que ya clasifica gestures.js:
+            // no agrega gestos ni cambia umbrales.
+            // La pinza no debe disparar la interacción del índice: si la mano
+            // está pinzando, no se publica su posición aunque el índice esté
+            // extendido.
+            const pinzando = !!(snapshot && snapshot.pinzaCerrada);
+            if (posture === "point" && !pinzando && !estado.indice) {
+                const indice = indiceEnVentana(mano, video.width, video.height);
+                if (indice) {
+                    indice.handId = snapshot ? snapshot.handId : null;
+                    estado.indice = indice;
+                }
+            }
+
             if (snapshot && snapshot.pinzaCerrada) estado.pinzaCerrada = true;
             if (snapshot && snapshot.pinzaAbierta) estado.pinzaAbierta = true;
+
+            // La distancia entre los dedos modula las interacciones continuas.
+            // Se toma la pinza más cerrada entre todas las manos.
+            if (snapshot && Number.isFinite(snapshot.pinzaDistancia)) {
+                if (estado.pinzaDistancia === null || snapshot.pinzaDistancia < estado.pinzaDistancia) {
+                    estado.pinzaDistancia = snapshot.pinzaDistancia;
+                }
+            }
 
             // Palma: el reconocedor exige el pulgar desplegado y con el
             // modelo lite a veces no llega. Para el oleaje se acepta la mano
@@ -248,6 +280,29 @@ const Gamelogic = (function () {
         return estado;
     }
 
+    // Proyección de la punta del índice al encuadre normalizado de la
+    // ventana: el mismo "cover" con el que handpose.js dibuja la cámara. El
+    // recuadro del pie muestra ese canvas completo, así que 0..1 coincide con
+    // lo que ve el usuario. Los keypoints ya vienen espejados por handpose.js:
+    // acá no se invierte nada.
+    function indiceEnVentana(mano, videoAncho, videoAlto) {
+        if (!videoAncho || !videoAlto) return null;
+
+        const punta = mano.keypoints[8];
+        if (!punta) return null;
+
+        const ancho = window.innerWidth || videoAncho;
+        const alto = window.innerHeight || videoAlto;
+        const escala = Math.max(ancho / videoAncho, alto / videoAlto);
+        const offsetX = (ancho - videoAncho * escala) / 2;
+        const offsetY = (alto - videoAlto * escala) / 2;
+
+        return {
+            x: (offsetX + punta.x * escala) / ancho,
+            y: (offsetY + punta.y * escala) / alto,
+        };
+    }
+
     // Respaldo del índice extendido (puente de interfaz, no un segundo
     // reconocedor): con el modelo lite el ángulo del índice a veces no
     // supera los umbrales estrictos de gestures.js. Solo actúa cuando no
@@ -298,6 +353,39 @@ const Gamelogic = (function () {
         }
 
         return proporcion;
+    }
+
+    // Respaldo de la palma abierta: tres o cuatro dedos largos extendidos y el
+    // pulgar desplegado. Sólo actúa cuando gestures.js no clasificó nada.
+    function manoAbierta(mano) {
+        const kp = mano.keypoints;
+        const muneca = kp[0];
+        const tamano = Math.max(distancia(muneca, kp[9]), 1e-6);
+        const dedos = [
+            { pip: 6, tip: 8 },
+            { pip: 10, tip: 12 },
+            { pip: 14, tip: 16 },
+            { pip: 18, tip: 20 },
+        ];
+
+        let extendidos = 0;
+        for (const dedo of dedos) {
+            const aPip = distancia(kp[dedo.pip], muneca);
+            if (aPip <= 1e-6) continue;
+            if (distancia(kp[dedo.tip], muneca) / aPip >= 1.2) extendidos += 1;
+        }
+        if (extendidos < 3) return false;
+        if (extendidos === 4) return true;
+
+        const ids = [0, 5, 9, 13, 17];
+        let x = 0;
+        let y = 0;
+        for (const id of ids) {
+            x += kp[id].x;
+            y += kp[id].y;
+        }
+        const palma = { x: x / ids.length, y: y / ids.length };
+        return distancia(kp[4], palma) / tamano >= 0.8;
     }
 
     // Empareja una mano con su snapshot por la posición del ancla (uno a
@@ -411,7 +499,43 @@ const Gamelogic = (function () {
         if (titulo) titulo.textContent = obra.titulo;
         if (autor) autor.textContent = obra.autor;
         if (anio) anio.textContent = String(obra.anio);
+        mostrarPoses(obra);
     }
+
+    // --- Descripciones de los gestos ---------------------------------------
+    // Cada obra puede declarar en `poses` qué hace cada gesto. Se guardan los
+    // textos originales para restaurarlos en las obras que no declaran nada.
+
+    const posesOriginales = [];
+
+    function capturarPoses() {
+        for (const nodo of document.querySelectorAll("#experiencia .pose[data-pose]")) {
+            const desc = nodo.querySelector(".pose-desc");
+            posesOriginales.push({
+                nodo,
+                clave: nodo.dataset.pose,
+                desc: desc ? desc.textContent : null,
+                titulo: nodo.getAttribute("title"),
+            });
+        }
+    }
+
+    function mostrarPoses(obra) {
+        for (const original of posesOriginales) {
+            const dato = obra && obra.poses ? obra.poses[original.clave] : null;
+            const desc = original.nodo.querySelector(".pose-desc");
+
+            if (dato) {
+                if (desc && dato.desc) desc.textContent = dato.desc;
+                if (dato.titulo) original.nodo.setAttribute("title", dato.titulo);
+            } else {
+                if (desc && original.desc !== null) desc.textContent = original.desc;
+                if (original.titulo !== null) original.nodo.setAttribute("title", original.titulo);
+            }
+        }
+    }
+
+    capturarPoses();
 
     // Aloja el canvas de cámara de handpose.js dentro del recuadro del pie.
     // Ojo: p5 agrega ese canvas dentro del <main> de la bienvenida (que queda
