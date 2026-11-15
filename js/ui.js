@@ -15,6 +15,113 @@ const OBRAS = (typeof CatalogoObras !== "undefined" && Array.isArray(CatalogoObr
     ? CatalogoObras
     : [];
 
+// --- Poses del pie de la experiencia -----------------------------------
+//
+// Cada obra declara en `gestos` qué hace cada gesto, con un `efecto`. Acá se
+// traduce ese efecto a la leyenda del pie: emoji, nombre y una línea. Las
+// obras sin `gestos` conservan la leyenda histórica (noche estrellada).
+
+const POSES_POR_EFECTO = {
+    oleaje: {
+        icono: "✋",
+        nombre: "Palma",
+        desc: "Mover el mar",
+        title: "Palma abierta: el mar y los barcos acompañan el movimiento de la mano",
+    },
+    tormenta: {
+        icono: "☝️",
+        nombre: "Índice",
+        desc: "Desatar la tormenta",
+        title: "Índice extendido: oscurece el cielo, llueve, caen rayos y el mar se agita",
+    },
+    corriente: {
+        icono: "✌️",
+        nombre: "Paz",
+        desc: "Abrir una corriente",
+        title: "Dos dedos con una mano: abre una corriente que arrastra el agua y las barcas",
+    },
+    noche: {
+        icono: "🤏",
+        nombre: "Pinza",
+        desc: "Caer la noche",
+        title: "Pinza cerrada: cae la noche, aparecen estrellas y el mar se agita",
+    },
+    viento: {
+        icono: "✋",
+        nombre: "Palma",
+        desc: "Mover el cielo",
+        title: "Palma abierta moviéndose de lado: desplaza las pinceladas del cielo",
+    },
+    molino: {
+        icono: "☝️",
+        nombre: "Índice",
+        desc: "Girar los remolinos",
+        title: "Índice extendido: los remolinos giran como un molino",
+    },
+    meteoros: {
+        icono: "✌️",
+        nombre: "Paz",
+        desc: "Lluvia de meteoritos",
+        title: "Paz: índice y medio extendidos",
+    },
+    resplandor: {
+        icono: "🤏",
+        nombre: "Pinza",
+        desc: "Encender los cuerpos",
+        title: "Pinza cerrada: pulgar e índice juntos encienden los cuerpos celestes",
+    },
+};
+
+const ORDEN_GESTOS_PIE = ["palma", "point", "peace", "pinza"];
+
+const POSES_LEGADO = [
+    POSES_POR_EFECTO.viento,
+    POSES_POR_EFECTO.molino,
+    POSES_POR_EFECTO.meteoros,
+    POSES_POR_EFECTO.resplandor,
+];
+
+function crearPose(datos) {
+    const pose = document.createElement("div");
+    pose.className = "pose";
+    pose.title = datos.title;
+
+    const icono = document.createElement("span");
+    icono.className = "pose-icono";
+    icono.setAttribute("aria-hidden", "true");
+    icono.textContent = datos.icono;
+
+    const nombre = document.createElement("span");
+    nombre.className = "pose-nombre";
+    nombre.textContent = datos.nombre;
+
+    const desc = document.createElement("span");
+    desc.className = "pose-desc";
+    desc.textContent = datos.desc;
+
+    pose.append(icono, nombre, desc);
+    return pose;
+}
+
+// Reemplaza la leyenda del pie de la experiencia con la de la obra elegida.
+function renderizarPosesExperiencia(obra) {
+    const contenedor = document.getElementById("posesGestos");
+    if (!contenedor) return;
+
+    let datos;
+
+    if (obra && obra.gestos) {
+        datos = ORDEN_GESTOS_PIE.map(function (gesto) {
+            const config = obra.gestos[gesto];
+            return config ? POSES_POR_EFECTO[config.efecto] : null;
+        }).filter(Boolean);
+    } else {
+        datos = POSES_LEGADO;
+    }
+
+    contenedor.replaceChildren(...datos.map(crearPose));
+}
+
 // --- Configuración del gesto --------------------------------------------
 
 const PUÑO = {
@@ -1018,6 +1125,7 @@ function seleccionarObra(obra, pieza) {
     // Si la experiencia está lista, la selección le pasa el control
     // (gamelogic.js decide si la obra tiene imagen para abrir).
     if (typeof Gamelogic !== "undefined" && Gamelogic.abrir(obra.id)) {
+        renderizarPosesExperiencia(obra);
         return;
     }
 
