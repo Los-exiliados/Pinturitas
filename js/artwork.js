@@ -108,6 +108,52 @@ const Artwork = (function () {
     let atmosfera = 0; // atmósfera de la obra (palma vertical)
     let objetivoAtmosfera = 0;
 
+    // Derretir (La persistencia de la memoria): la pinza ablanda los relojes.
+    let derretir = 0; // 0 = forma original, 1 = relojes escurridos
+    let objetivoDerretir = 0;
+    let faseDerretir = 0; // ondulación viscosa del derretimiento
+
+    // Paz en La persistencia: un video de párpados se superpone a la obra
+    // (quitándole el verde) y se cierra/abre con el gesto.
+    let ojosProgreso = 0; // 0 = abiertos, 1 = cerrados
+    let objetivoOjos = 0;
+    let videoOjos = null;
+    let ojosListo = false;
+
+    // Manecillas de La persistencia: parejas sueltas que giran sobre los
+    // relojes con el gesto de paz.
+    let recortesManecillas = null;
+    let recortesRelojes = null;
+    let faseManecillas = 0;
+    let relojesFundido = 0; // aparición/desaparición progresiva de los relojes
+
+    // Sueño (La persistencia, palma): la escena se vuelve onírica.
+    let sueno = 0; // 0 = natural, 1 = universo onírico
+    let objetivoSueno = 0;
+    let suenoLado = 0.5; // 0 = paleta fria (izquierda), 1 = violeta (derecha)
+    let objetivoSuenoLado = 0.5;
+    let faseSueno = 0; // giro de colores de la dimensión invertida
+    let capaSueno = null;
+
+    // Lluvia de estrellas del sueño.
+    const estrellasSueno = [];
+    let estrellasSuenoAcum = 0;
+
+    // Pintura derretida cayendo desde el borde superior de la obra.
+    const chorreos = [];
+    let chorreosAcum = 0;
+
+    // Índice (La persistencia): la obra se descompone en dimensiones.
+    let disolucion = 0;
+    let objetivoDisolucion = 0;
+    let faseDisolucion = 0;
+    let empujeDisolucion = 0;
+    const estrellasDisolucion = [];
+
+    // Cuadrados del multiverso: crecen a distintos ritmos, como animación.
+    const cuadradosDisolucion = [];
+    let cuadradosDisolucionAcum = 0;
+
     // Despeje de la niebla (índice en movimiento horizontal): la posición de
     // la mano corre el frente de la niebla y revela la obra sin nubes.
     const MASCARA_ANCHO = 192; // resolución de la máscara del borde de niebla
@@ -119,6 +165,7 @@ const Artwork = (function () {
     let capaDespeje = null; // capa auxiliar del revelado
     let mascaraDespeje = null; // máscara del borde de niebla
     let mascaraDatos = null; // ImageData reutilizable de la máscara
+    let capaNoche = null; // capa auxiliar del etalonaje nocturno
 
     // Resplandor de los cuerpos celestes (la pinza cerrada lo enciende).
     let cuerposActivos = [];
@@ -225,6 +272,57 @@ const Artwork = (function () {
                         objetivoDespeje = 0;
                     }
 
+                    // Derretir: la pinza ablanda los relojes; al abrirla
+                    // recuperan lentos su forma original.
+                    derretir +=
+                        (objetivoDerretir - derretir) *
+                        Math.min(1, dt * (objetivoDerretir > derretir ? 3 : 1.6));
+                    if (Math.abs(objetivoDerretir - derretir) < 0.002) {
+                        derretir = objetivoDerretir;
+                    }
+                    faseDerretir += dt * 1.6;
+
+                    // Con la paz activa las manecillas giran sin control; al
+                    // disolverse el gesto el giro se frena solo.
+                    faseManecillas += dt * ojosProgreso;
+
+                    // Sueño: la palma enciende el universo onírico; al
+                    // soltarla, la escena vuelve suave a lo natural.
+                    if (obraActual && obraActual.palmEfecto === "sueno") {
+                        sueno +=
+                            (objetivoSueno - sueno) *
+                            Math.min(1, dt * (objetivoSueno > sueno ? 1.6 : 0.7));
+                        if (Math.abs(objetivoSueno - sueno) < 0.002) {
+                            sueno = objetivoSueno;
+                        }
+                        suenoLado += (objetivoSuenoLado - suenoLado) * Math.min(1, dt * 1.6);
+                        faseSueno += dt * (0.35 + 0.65 * sueno);
+                    } else if (sueno !== 0 || objetivoSueno !== 0) {
+                        sueno = 0;
+                        objetivoSueno = 0;
+                    }
+
+                    // Índice: descomposición en dimensiones; se arma suave
+                    // y se repliega al soltar el gesto.
+                    if (obraActual && obraActual.indiceEfecto === "disolver") {
+                        disolucion +=
+                            (objetivoDisolucion - disolucion) *
+                            Math.min(1, dt * (objetivoDisolucion > disolucion ? 1.1 : 0.9));
+                        if (Math.abs(objetivoDisolucion - disolucion) < 0.002) {
+                            disolucion = objetivoDisolucion;
+                        }
+                        faseDisolucion += dt * (0.35 + 0.65 * disolucion);
+                        const empuje =
+                            ultimaEntrada && typeof ultimaEntrada.indiceVelocidad === "number"
+                                ? Math.min(1, Math.abs(ultimaEntrada.indiceVelocidad) * 30)
+                                : 0;
+                        empujeDisolucion +=
+                            (empuje - empujeDisolucion) * Math.min(1, dt * 4);
+                    } else if (disolucion !== 0 || objetivoDisolucion !== 0) {
+                        disolucion = 0;
+                        objetivoDisolucion = 0;
+                    }
+
                     // Viento: la velocidad de la palma abierta define el
                     // desplazamiento; al detenerse o perderse la mano, el
                     // objetivo es 0 y las pinceladas vuelven solas. Solo
@@ -306,13 +404,27 @@ const Artwork = (function () {
 
                     const revertir = ahora - ultimoConMano > REVERTIR_MS;
                     actualizarEfectos(ultimaEntrada, dt, revertir);
+                    actualizarEstrellasSueno(dt);
+                    actualizarChorreos(dt);
+                    actualizarCuadrados(dt);
 
                     dibujarTormenta(p);
                     dibujarAtmosfera(p);
                     dibujarDespeje(p);
+                    dibujarLocura(p);
+                    dibujarChorreos(p);
+                    dibujarDisolucion(p);
+                    dibujarSueno(p);
+                    dibujarRelojesSueno(p);
+                    dibujarEstrellasSueno(p);
+                    dibujarNoche(p);
+                    dibujarRelojesLimpios(p);
+                    dibujarManecillas(p);
+                    dibujarVeladuraNoche(p);
                     dibujarNubesAura(p);
 
                     dibujarMeteoros(p);
+                    actualizarOjos(p, dt);
                 } catch (error) {
                     // Un frame con error no debe apagar la capa de efectos.
                     console.error("Error en la capa de efectos:", error);
@@ -883,6 +995,969 @@ const Artwork = (function () {
         ctx.restore();
     }
 
+    // Locura: mientras la pinza derrite los relojes, la escena se enciende
+    // con colores psicodélicos que giran (el mundo de Dalí se desquicia).
+    function dibujarLocura(p) {
+        if (derretir <= 0.005) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+
+        const x = vista.offsetX;
+        const y = vista.offsetY;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+        const intensidad = Math.min(1, derretir);
+        const t = faseDerretir;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x, y, ancho, alto);
+        ctx.clip();
+
+        // Ola psicodélica: el tono gira por toda la escena.
+        const hue = (t * 55) % 360;
+        const ola = ctx.createLinearGradient(x, y, x + ancho, y + alto);
+        ola.addColorStop(0, `hsla(${hue}, 95%, 60%, ${(0.35 * intensidad).toFixed(3)})`);
+        ola.addColorStop(
+            0.5,
+            `hsla(${(hue + 120) % 360}, 95%, 60%, ${(0.175 * intensidad).toFixed(3)})`
+        );
+        ola.addColorStop(
+            1,
+            `hsla(${(hue + 240) % 360}, 95%, 60%, ${(0.35 * intensidad).toFixed(3)})`
+        );
+        ctx.fillStyle = ola;
+        ctx.fillRect(x, y, ancho, alto);
+
+        // Auras de colores girando sobre cada reloj que se derrite.
+        for (const zona of zonasActivas) {
+            if (zona.efecto !== "derretir") continue;
+
+            const c = aVista(zona.x, zona.y, p, vista);
+            const r =
+                zona.radio * Math.min(dimensiones.ancho, dimensiones.alto) * vista.fit * 1.4;
+            const hz = (hue + zona.x * 360 + zona.y * 180) % 360;
+            const aura = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, r);
+            aura.addColorStop(0, `hsla(${hz}, 100%, 65%, ${(0.55 * intensidad).toFixed(3)})`);
+            aura.addColorStop(
+                0.6,
+                `hsla(${(hz + 70) % 360}, 100%, 55%, ${(0.275 * intensidad).toFixed(3)})`
+            );
+            aura.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+            ctx.fillStyle = aura;
+            ctx.fillRect(c.x - r, c.y - r, r * 2, r * 2);
+        }
+
+        ctx.restore();
+    }
+
+    // Recortes por pareja: se preparan una vez desde el sprite (copiando
+    // regiones, sin leer píxeles) para dibujar cada par por separado, sin
+    // recortes ni manecillas de otros relojes colándose.
+    function crearRecortesManecillas(img) {
+        const regiones = [
+            { x: 880, y: 170, w: 620, h: 362, hubX: 1331, hubY: 470 },
+            { x: 110, y: 180, w: 620, h: 360, hubX: 519, hubY: 475 },
+            { x: 460, y: 710, w: 640, h: 362, hubX: 925, hubY: 937 },
+        ];
+        const recortes = [];
+        for (const region of regiones) {
+            const lienzo = document.createElement("canvas");
+            lienzo.width = region.w;
+            lienzo.height = region.h;
+            const ctx = lienzo.getContext("2d");
+            ctx.drawImage(
+                img.canvas,
+                region.x,
+                region.y,
+                region.w,
+                region.h,
+                0,
+                0,
+                region.w,
+                region.h
+            );
+            recortes.push({
+                lienzo,
+                hubX: region.hubX - region.x,
+                hubY: region.hubY - region.y,
+            });
+        }
+        return recortes;
+    }
+
+    // Pintura derretida: chorrea desde el borde superior de la obra y baja
+    // por la superficie mientras la pinza derrite los relojes.
+    function actualizarChorreos(dt) {
+        if (derretir > 0.02) {
+            chorreosAcum += 6 * derretir * dt;
+            while (chorreosAcum >= 1) {
+                chorreosAcum -= 1;
+                chorreos.push({
+                    x: Math.random(),
+                    ancho: 0.012 + Math.random() * 0.02,
+                    largo: 0.02 + Math.random() * 0.04,
+                    vy: 0.12 + Math.random() * 0.18,
+                    tono: Math.floor(Math.random() * 4),
+                });
+            }
+            if (chorreos.length > 40) {
+                chorreos.splice(0, chorreos.length - 40);
+            }
+        }
+
+        for (let i = chorreos.length - 1; i >= 0; i -= 1) {
+            const chorreo = chorreos[i];
+            chorreo.largo += chorreo.vy * dt;
+            if (chorreo.largo > 1.05) chorreos.splice(i, 1);
+        }
+    }
+
+    function dibujarChorreos(p) {
+        if (chorreos.length === 0 || derretir <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const paleta = [
+            "rgba(214, 158, 58, ", // dorado de los acantilados
+            "rgba(38, 92, 176, ", // azul del cielo
+            "rgba(224, 128, 118, ", // rosa de la carne
+            "rgba(126, 146, 62, ", // oliva del paisaje
+        ];
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+
+        for (const chorreo of chorreos) {
+            const x = vista.offsetX + chorreo.x * vista.anchoDibujo;
+            const ancho = Math.max(1.5, chorreo.ancho * vista.anchoDibujo);
+            const largo = Math.max(ancho, chorreo.largo * vista.altoDibujo);
+            const alpha = Math.min(1, derretir * 0.55);
+            const base = paleta[chorreo.tono];
+
+            // Barra viscosa con punta redondeada.
+            ctx.fillStyle = base + alpha.toFixed(3) + ")";
+            ctx.beginPath();
+            ctx.moveTo(x - ancho / 2, vista.offsetY);
+            ctx.lineTo(x + ancho / 2, vista.offsetY);
+            ctx.lineTo(x + ancho / 2, vista.offsetY + largo - ancho / 2);
+            ctx.arc(x, vista.offsetY + largo - ancho / 2, ancho / 2, 0, Math.PI);
+            ctx.closePath();
+            ctx.fill();
+
+            // Brillo húmedo sobre la pintura que escurre.
+            ctx.fillStyle = base + (alpha * 0.35).toFixed(3) + ")";
+            ctx.fillRect(
+                x - ancho * 0.18,
+                vista.offsetY,
+                Math.max(1, ancho * 0.22),
+                Math.max(2, largo * 0.7)
+            );
+        }
+
+        ctx.restore();
+    }
+
+    // Sueño (La persistencia, palma): detrás de la escena natural aparece una
+    // dimensión invertida: cielo abajo, el mar flotando sobre las montañas,
+    // los relojes cayendo hacia arriba y colores que giran en el tiempo.
+    function dibujarSueno(p) {
+        if (!imagen || sueno <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const x = vista.offsetX;
+        const y = vista.offsetY;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+        const t = faseSueno;
+        const giro = t * 45 + suenoLado * 120;
+
+        capaSueno = prepararCapaAuxiliar(capaSueno, p);
+        const capa = capaSueno.getContext("2d");
+        capa.save();
+        capa.beginPath();
+        capa.rect(x, y, ancho, alto);
+        capa.clip();
+
+        // Mundo invertido: la pintura dada vuelta (el cielo queda abajo y el
+        // suelo arriba) con colores distintos pero sin tapar la dimensión.
+        capa.save();
+        capa.translate(x, y + alto);
+        capa.scale(1, -1);
+        capa.filter = `hue-rotate(${giro % 360}deg) saturate(1.45) contrast(1.02)`;
+        capa.drawImage(imagen.canvas, 0, 0, ancho, alto);
+        capa.filter = "none";
+        capa.restore();
+
+        // El mar flota sobre las montañas: franja del horizonte espejada.
+        // (Quitada: dejaba una banda de color en medio de la escena.)
+
+        // Lavados suaves: el tono cambia con el tiempo sin esconder el mundo.
+        const r = Math.round(127 + 127 * Math.sin(t * 0.9));
+        const g = Math.round(127 + 127 * Math.sin(t * 0.9 + 2.1));
+        const b = Math.round(127 + 127 * Math.sin(t * 0.9 + 4.2));
+        capa.globalCompositeOperation = "saturation";
+        capa.fillStyle = "rgba(128, 128, 128, 0.2)";
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "multiply";
+        capa.fillStyle = `rgba(${r}, ${g}, ${b}, 0.22)`;
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "screen";
+        capa.fillStyle = `rgba(${255 - r}, ${255 - g}, ${255 - b}, 0.1)`;
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "source-over";
+        capa.restore();
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = Math.min(1, sueno);
+        ctx.drawImage(capaSueno, 0, 0);
+        ctx.restore();
+    }
+
+    // Fuegos artificiales: estallidos de chispas dentro de la obra mientras
+    // el índice descompone el universo.
+    function actualizarCuadrados(dt) {
+        if (disolucion > 0.05) {
+            cuadradosDisolucionAcum += 6 * disolucion * dt;
+            while (cuadradosDisolucionAcum >= 1) {
+                cuadradosDisolucionAcum -= 1;
+                cuadradosDisolucion.push({
+                    x: 0.08 + Math.random() * 0.84,
+                    y: 0.08 + Math.random() * 0.84,
+                    lado: 0.01 + Math.random() * 0.02,
+                    crece: 0.02 + Math.random() * 0.05,
+                    max: 0.06 + Math.random() * 0.16,
+                    fase: Math.random() * Math.PI * 2,
+                    tono: Math.floor(Math.random() * 3),
+                });
+            }
+            if (cuadradosDisolucion.length > 40) {
+                cuadradosDisolucion.splice(0, cuadradosDisolucion.length - 40);
+            }
+        }
+
+        for (let i = cuadradosDisolucion.length - 1; i >= 0; i -= 1) {
+            const cuadrado = cuadradosDisolucion[i];
+            cuadrado.lado += cuadrado.crece * dt;
+            if (cuadrado.lado >= cuadrado.max) cuadradosDisolucion.splice(i, 1);
+        }
+    }
+
+    // Índice (La persistencia): la obra se descompone en dimensiones
+    // superpuestas: fragmentos flotantes, mar estrellado y múltiples
+    // horizontes.
+    function dibujarDisolucion(p) {
+        if (!imagen || disolucion <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const x0 = vista.offsetX;
+        const y0 = vista.offsetY;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+        const d = disolucion;
+        const t = faseDisolucion;
+        const ladoMenor = Math.min(ancho, alto);
+
+        if (estrellasDisolucion.length === 0) {
+            for (let i = 0; i < 140; i += 1) {
+                estrellasDisolucion.push({
+                    x: Math.random(),
+                    y: Math.random(),
+                    r: 0.4 + Math.random() * 1.1,
+                    fase: Math.random() * Math.PI * 2,
+                });
+            }
+        }
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(x0, y0, ancho, alto);
+        ctx.clip();
+
+        // 1) Vacío estrellado detrás de los fragmentos.
+        ctx.fillStyle = "rgba(5, 7, 22, 0.92)";
+        ctx.fillRect(x0, y0, ancho, alto);
+        for (const estrella of estrellasDisolucion) {
+            const ex = x0 + estrella.x * ancho;
+            const ey = y0 + estrella.y * alto;
+            const brillo = 0.4 + 0.6 * Math.abs(Math.sin(t * 2 + estrella.fase));
+            ctx.fillStyle = `rgba(220, 230, 255, ${(brillo * d).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(ex, ey, Math.max(0.6, estrella.r * vista.fit * 1.6), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 2) El paisaje se divide en fragmentos flotantes.
+        const cols = 8;
+        const filas = 5;
+        const anchoImagen = dimensiones.ancho;
+        const altoImagen = dimensiones.alto;
+
+        for (let fy = 0; fy < filas; fy += 1) {
+            for (let fx = 0; fx < cols; fx += 1) {
+                const sx = (fx * anchoImagen) / cols;
+                const sy = (fy * altoImagen) / filas;
+                const sw = anchoImagen / cols;
+                const sh = altoImagen / filas;
+
+                const cxF = (fx + 0.5) / cols;
+                const cyF = (fy + 0.5) / filas;
+                const dirX = cxF - 0.5;
+                const dirY = cyF - 0.5;
+                const onda = Math.sin(t * 1.6 + fx * 0.9 + fy * 1.3);
+                const deriva = (0.1 + 0.1 * onda) * d + empujeDisolucion * 0.015;
+
+                const destinoX = x0 + cxF * ancho + dirX * deriva * ancho * 1.8;
+                const destinoY = y0 + cyF * alto + dirY * deriva * alto * 1.8;
+                const rotacion = (dirX + dirY) * d * 0.12 + onda * d * 0.05;
+                const anchoF = (ancho / cols) * (1 - 0.1 * d);
+                const altoF = (alto / filas) * (1 - 0.1 * d);
+
+                ctx.save();
+                ctx.translate(destinoX, destinoY);
+                ctx.rotate(rotacion);
+                ctx.drawImage(
+                    imagen.canvas,
+                    sx,
+                    sy,
+                    sw,
+                    sh,
+                    -anchoF / 2,
+                    -altoF / 2,
+                    anchoF,
+                    altoF
+                );
+                ctx.restore();
+            }
+        }
+
+        // 3) El mar se transforma en un cielo estrellado.
+        const bandaY = y0 + alto * 0.36;
+        const bandaH = alto * 0.26;
+        const banda = ctx.createLinearGradient(x0, bandaY, x0, bandaY + bandaH);
+        banda.addColorStop(0, `rgba(24, 36, 96, ${(0.55 * d).toFixed(3)})`);
+        banda.addColorStop(0.5, `rgba(6, 10, 36, ${(0.75 * d).toFixed(3)})`);
+        banda.addColorStop(1, "rgba(6, 10, 36, 0)");
+        ctx.fillStyle = banda;
+        ctx.fillRect(x0, bandaY, ancho, bandaH);
+        for (const estrella of estrellasDisolucion) {
+            if (estrella.y < 0.36 || estrella.y > 0.64) continue;
+            const ex = x0 + estrella.x * ancho;
+            const ey = y0 + estrella.y * alto;
+            const brillo = 0.5 + 0.5 * Math.abs(Math.sin(t * 2.6 + estrella.fase));
+            ctx.fillStyle = `rgba(235, 242, 255, ${(brillo * d).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(ex, ey, Math.max(0.8, estrella.r * vista.fit * 2), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 4) Cromática: la izquierda es noche y la derecha es día.
+        {
+            const crisol = ctx.createLinearGradient(x0, 0, x0 + ancho, 0);
+            crisol.addColorStop(0, `rgba(10, 18, 66, ${(0.6 * d).toFixed(3)})`);
+            crisol.addColorStop(0.34, `rgba(12, 22, 80, ${(0.28 * d).toFixed(3)})`);
+            crisol.addColorStop(0.5, `rgba(20, 30, 70, 0)`);
+            crisol.addColorStop(0.66, `rgba(255, 196, 96, ${(0.28 * d).toFixed(3)})`);
+            crisol.addColorStop(1, `rgba(255, 176, 70, ${(0.6 * d).toFixed(3)})`);
+            ctx.fillStyle = crisol;
+            ctx.fillRect(x0, y0, ancho, alto);
+
+            // Destello de día entrando por el borde derecho.
+            const sol = ctx.createRadialGradient(
+                x0 + ancho,
+                y0 + alto * 0.42,
+                0,
+                x0 + ancho,
+                y0 + alto * 0.42,
+                ancho * 0.5
+            );
+            sol.addColorStop(0, `rgba(255, 224, 150, ${(0.5 * d).toFixed(3)})`);
+            sol.addColorStop(1, "rgba(255, 224, 150, 0)");
+            ctx.fillStyle = sol;
+            ctx.fillRect(x0, y0, ancho, alto);
+        }
+
+        // 5) Cuadrados que crecen aleatoriamente, como una animación.
+        const tonosCuadrado = [
+            [255, 205, 110],
+            [120, 170, 255],
+            [200, 140, 255],
+        ];
+        for (const cuadrado of cuadradosDisolucion) {
+            const lado = cuadrado.lado * ladoMenor;
+            const px = x0 + cuadrado.x * ancho;
+            const py = y0 + cuadrado.y * alto;
+            const avance = Math.min(1, cuadrado.lado / cuadrado.max);
+            const aparicion = Math.sin(Math.PI * Math.min(1, avance + 0.08));
+            const color = tonosCuadrado[cuadrado.tono] || tonosCuadrado[0];
+            const alpha = aparicion * d * 0.55;
+
+            ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${(
+                alpha * 0.35
+            ).toFixed(3)})`;
+            ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha.toFixed(3)})`;
+            ctx.lineWidth = Math.max(1, ladoMenor * 0.0016);
+            ctx.fillRect(px - lado / 2, py - lado / 2, lado, lado);
+            ctx.strokeRect(px - lado / 2, py - lado / 2, lado, lado);
+        }
+
+        // 6) Múltiples horizontes dentro de la misma pintura.
+        for (let i = 0; i < 3; i += 1) {
+            const hy = y0 + alto * (0.28 + i * 0.18);
+            const grad = ctx.createLinearGradient(x0, 0, x0 + ancho, 0);
+            grad.addColorStop(0, "rgba(255, 210, 140, 0)");
+            grad.addColorStop(0.5, `rgba(255, 224, 175, ${(0.5 * d).toFixed(3)})`);
+            grad.addColorStop(1, "rgba(255, 210, 140, 0)");
+            ctx.fillStyle = grad;
+            ctx.fillRect(x0, hy, ancho, 2);
+        }
+
+        ctx.restore();
+    }
+
+    // Lluvia de estrellas del sueño: caen en vertical dentro de la obra.
+    function actualizarEstrellasSueno(dt) {
+        if (sueno > 0.02) {
+            estrellasSuenoAcum += 45 * sueno * dt;
+            while (estrellasSuenoAcum >= 1) {
+                estrellasSuenoAcum -= 1;
+                estrellasSueno.push({
+                    x: Math.random(),
+                    y: -0.02 - Math.random() * 0.06,
+                    vy: 0.12 + Math.random() * 0.22,
+                    tam: 0.004 + Math.random() * 0.006,
+                    fase: Math.random() * Math.PI * 2,
+                });
+            }
+            if (estrellasSueno.length > 140) {
+                estrellasSueno.splice(0, estrellasSueno.length - 140);
+            }
+        }
+
+        for (let i = estrellasSueno.length - 1; i >= 0; i -= 1) {
+            const estrella = estrellasSueno[i];
+            estrella.y += estrella.vy * dt;
+            if (estrella.y > 1.03) estrellasSueno.splice(i, 1);
+        }
+    }
+
+    function dibujarEstrellasSueno(p) {
+        if (estrellasSueno.length === 0 || sueno <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const ladoMenor = Math.min(dimensiones.ancho, dimensiones.alto);
+        const t = faseSueno;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+
+        for (const estrella of estrellasSueno) {
+            const c = aVista(estrella.x, estrella.y, p, vista);
+            const tam = Math.max(1.5, estrella.tam * ladoMenor * vista.fit);
+            // Titilan para mantener la estética suave del sueño.
+            const brillo = 0.45 + 0.55 * Math.max(0, Math.sin(t * 3 + estrella.fase));
+            const alpha = Math.min(1, sueno * brillo);
+            const color = `rgba(255, 248, 220, ${alpha.toFixed(3)})`;
+
+            // Destello de cuatro puntas.
+            ctx.strokeStyle = color;
+            ctx.lineWidth = Math.max(1, tam * 0.18);
+            ctx.beginPath();
+            ctx.moveTo(c.x, c.y - tam);
+            ctx.lineTo(c.x, c.y + tam);
+            ctx.moveTo(c.x - tam, c.y);
+            ctx.lineTo(c.x + tam, c.y);
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, Math.max(1, tam * 0.28), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.restore();
+    }
+
+    // Relojes cayendo hacia arriba en la dimensión del sueño.
+    function dibujarRelojesSueno(p) {
+        if (!recortesRelojes || sueno <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const t = faseSueno;
+
+        const flotantes = [
+            { recorte: 0, nx: 0.16, escala: 0.28, fase: 0, giro: 2.2, colorFase: 0 },
+            { recorte: 1, nx: 0.36, escala: 0.4, fase: 0.22, giro: -3.0, colorFase: 60 },
+            { recorte: 2, nx: 0.58, escala: 0.2, fase: 0.5, giro: 4.0, colorFase: -50 },
+            { recorte: 0, nx: 0.78, escala: 0.34, fase: 0.12, giro: -2.4, colorFase: 120 },
+            { recorte: 1, nx: 0.5, escala: 0.16, fase: 0.68, giro: 3.4, colorFase: -100 },
+            { recorte: 2, nx: 0.28, escala: 0.24, fase: 0.38, giro: -4.2, colorFase: 180 },
+            { recorte: 0, nx: 0.68, escala: 0.14, fase: 0.82, giro: 5.0, colorFase: 40 },
+            { recorte: 1, nx: 0.9, escala: 0.18, fase: 0.6, giro: -3.6, colorFase: -70 },
+            { recorte: 2, nx: 0.44, escala: 0.3, fase: 0.9, giro: 2.8, colorFase: 150 },
+            // Uno de frente, sin girar, como el reloj que observa.
+            { recorte: 1, nx: 0.52, escala: 0.26, fase: 0.05, giro: 0, colorFase: -30 },
+        ];
+
+        // Los relojes toman el tono complementario del fondo: contrastan.
+        const giroFondo = t * 45 + suenoLado * 120;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+        ctx.globalAlpha = Math.min(1, sueno * 0.72);
+
+        for (const reloj of flotantes) {
+            const recorte = recortesRelojes[reloj.recorte];
+            if (!recorte) continue;
+
+            // Sube de abajo hacia arriba y vuelve a empezar.
+            const progreso = (t * 0.09 + reloj.fase) % 1;
+            const ny = 1.2 - progreso * 1.4;
+            const cx = vista.offsetX + reloj.nx * vista.anchoDibujo;
+            const cy = vista.offsetY + ny * vista.altoDibujo;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            // Gira sobre su propio eje, cada uno a su ritmo.
+            ctx.rotate(t * reloj.giro + reloj.fase * 6);
+            ctx.scale(vista.fit * reloj.escala, vista.fit * reloj.escala);
+            ctx.filter = `hue-rotate(${(giroFondo + 180 + reloj.colorFase) % 360}deg) saturate(1.4)`;
+            ctx.drawImage(recorte.lienzo, -recorte.lienzo.width / 2, -recorte.lienzo.height / 2);
+            ctx.filter = "none";
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    // Noche (La persistencia): la misma paleta fría que el anochecer del
+    // caminante, sin luna: la escena se apaga en azules profundos.
+    function dibujarNoche(p) {
+        if (!imagen || relojesFundido <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+        const x = vista.offsetX;
+        const y = vista.offsetY;
+        const ancho = vista.anchoDibujo;
+        const alto = vista.altoDibujo;
+
+        capaNoche = prepararCapaAuxiliar(capaNoche, p);
+        const capa = capaNoche.getContext("2d");
+        capa.save();
+        capa.beginPath();
+        capa.rect(x, y, ancho, alto);
+        capa.clip();
+        capa.drawImage(imagen.canvas, x, y, ancho, alto);
+
+        // El color propio de la escena se apaga y manda el azul nocturno.
+        capa.globalCompositeOperation = "saturation";
+        capa.fillStyle = "rgba(128, 128, 128, 0.45)";
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "multiply";
+        capa.fillStyle = "rgba(38, 60, 138, 0.48)";
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "screen";
+        capa.fillStyle = "rgba(30, 70, 160, 0.1)";
+        capa.fillRect(x, y, ancho, alto);
+        capa.globalCompositeOperation = "source-over";
+        capa.restore();
+
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = Math.min(1, relojesFundido * 0.92);
+        ctx.drawImage(capaNoche, 0, 0);
+        ctx.restore();
+    }
+
+    // Veladura final: unifica los relojes y las manecillas con la noche.
+    function dibujarVeladuraNoche(p) {
+        if (relojesFundido <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.clip();
+        ctx.fillStyle = `rgba(12, 22, 60, ${(0.22 * relojesFundido).toFixed(3)})`;
+        ctx.fillRect(vista.offsetX, vista.offsetY, vista.anchoDibujo, vista.altoDibujo);
+        ctx.restore();
+    }
+
+    // Recortes de los relojes limpios (con alfa) que reemplazan visualmente
+    // a los pintados durante el gesto de paz.
+    function crearRecortesRelojes(img) {
+        const regiones = [
+            { x: 640, y: 0, w: 420, h: 620 },
+            { x: 40, y: 520, w: 660, h: 646 },
+            { x: 950, y: 620, w: 630, h: 520 },
+        ];
+        const recortes = [];
+        for (const region of regiones) {
+            const lienzo = document.createElement("canvas");
+            lienzo.width = region.w;
+            lienzo.height = region.h;
+            lienzo
+                .getContext("2d")
+                .drawImage(
+                    img.canvas,
+                    region.x,
+                    region.y,
+                    region.w,
+                    region.h,
+                    0,
+                    0,
+                    region.w,
+                    region.h
+                );
+            recortes.push({ lienzo });
+        }
+        return recortes;
+    }
+
+    // Relojes limpios sobre los pintados: mientras la paz está activa, la
+    // escena "descompone" los relojes y aparecen nítidos con sus manecillas.
+    function dibujarRelojesLimpios(p) {
+        if (!recortesRelojes || relojesFundido <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+
+        const config = [
+            { recorte: 0, nx: 0.353, ny: 0.298, escala: 0.7 },
+            { recorte: 1, nx: 0.207, ny: 0.69, escala: 0.74 },
+            { recorte: 2, nx: 0.534, ny: 0.609, escala: 0.34 },
+        ];
+
+        ctx.save();
+        ctx.globalAlpha = Math.min(1, relojesFundido);
+
+        for (const reloj of config) {
+            const recorte = recortesRelojes[reloj.recorte];
+            if (!recorte) continue;
+
+            const cx = vista.offsetX + reloj.nx * vista.anchoDibujo;
+            const cy = vista.offsetY + reloj.ny * vista.altoDibujo;
+            const escala = vista.fit * reloj.escala;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(escala, escala);
+            ctx.drawImage(recorte.lienzo, -recorte.lienzo.width / 2, -recorte.lienzo.height / 2);
+            ctx.restore();
+        }
+
+        ctx.restore();
+    }
+
+    // Manecillas: cada reloj recibe una pareja que gira sobre su propio eje,
+    // como si alguien cambiara la hora a lo loco, mientras la paz está activa.
+    function dibujarManecillas(p) {
+        if (!recortesManecillas || relojesFundido <= 0.01) return;
+        const vista = vistaPintura(p);
+        const ctx = p.drawingContext;
+
+        // Pivote real de cada reloj (normalizado), pareja del sprite, escala,
+        // orientación del plano (base), aplastamiento de la esfera (sx/sy)
+        // y velocidad de giro en rad/s.
+        const config = [
+            {
+                recorte: 1,
+                nx: 0.375,
+                ny: 0.257,
+                escala: 0.23,
+                velocidad: 9,
+                base: 0.1,
+                sx: 0.4,
+                sy: 1.0,
+            },
+            {
+                recorte: 0,
+                nx: 0.269,
+                ny: 0.6,
+                escala: 0.33,
+                velocidad: -13,
+                base: -0.1,
+                sx: 1.0,
+                sy: 0.55,
+            },
+            {
+                recorte: 2,
+                nx: 0.531,
+                ny: 0.6,
+                escala: 0.12,
+                velocidad: 16,
+                base: 0.15,
+                sx: 1.0,
+                sy: 0.75,
+            },
+
+            // Manecillas sueltas flotando por toda la obra.
+            {
+                recorte: 0,
+                nx: 0.12,
+                ny: 0.16,
+                escala: 0.18,
+                velocidad: 7,
+                base: 0.8,
+                sx: 0.9,
+                sy: 0.9,
+            },
+            {
+                recorte: 1,
+                nx: 0.68,
+                ny: 0.18,
+                escala: 0.15,
+                velocidad: -9,
+                base: 2.1,
+                sx: 0.85,
+                sy: 0.85,
+            },
+            {
+                recorte: 2,
+                nx: 0.86,
+                ny: 0.34,
+                escala: 0.14,
+                velocidad: 11,
+                base: 3.4,
+                sx: 0.9,
+                sy: 0.9,
+            },
+            {
+                recorte: 0,
+                nx: 0.62,
+                ny: 0.3,
+                escala: 0.13,
+                velocidad: -6,
+                base: 1.2,
+                sx: 0.8,
+                sy: 0.8,
+            },
+            {
+                recorte: 1,
+                nx: 0.18,
+                ny: 0.45,
+                escala: 0.14,
+                velocidad: 8,
+                base: 4.1,
+                sx: 0.9,
+                sy: 0.9,
+            },
+            {
+                recorte: 2,
+                nx: 0.42,
+                ny: 0.85,
+                escala: 0.15,
+                velocidad: -10,
+                base: 0.4,
+                sx: 0.85,
+                sy: 0.85,
+            },
+            {
+                recorte: 0,
+                nx: 0.78,
+                ny: 0.78,
+                escala: 0.17,
+                velocidad: 12,
+                base: 2.8,
+                sx: 0.9,
+                sy: 0.9,
+            },
+            {
+                recorte: 1,
+                nx: 0.36,
+                ny: 0.12,
+                escala: 0.12,
+                velocidad: -7,
+                base: 5.2,
+                sx: 0.85,
+                sy: 0.85,
+            },
+        ];
+
+        for (const reloj of config) {
+            const recorte = recortesManecillas[reloj.recorte];
+            if (!recorte) continue;
+
+            const cx = vista.offsetX + reloj.nx * vista.anchoDibujo;
+            const cy = vista.offsetY + reloj.ny * vista.altoDibujo;
+            const angulo = reloj.base + faseManecillas * reloj.velocidad * ojosProgreso;
+
+            ctx.save();
+            ctx.globalAlpha = Math.min(1, relojesFundido);
+            ctx.translate(cx, cy);
+            ctx.rotate(angulo);
+            ctx.scale(vista.fit * reloj.escala * reloj.sx, vista.fit * reloj.escala * reloj.sy);
+            ctx.drawImage(recorte.lienzo, -recorte.hubX, -recorte.hubY);
+            ctx.restore();
+        }
+    }
+
+    // Ojos de La persistencia: el video de párpados se superpone a la obra
+    // con un filtro SVG que convierte el verde en transparencia (sin leer
+    // píxeles, así funciona también abriendo el archivo localmente).
+    function crearFiltroOjos() {
+        if (document.getElementById("filtro-ojos")) return;
+        const ns = "http://www.w3.org/2000/svg";
+        const svg = document.createElementNS(ns, "svg");
+        svg.setAttribute("id", "filtro-ojos");
+        svg.setAttribute("width", "0");
+        svg.setAttribute("height", "0");
+        svg.style.position = "absolute";
+
+        const defs = document.createElementNS(ns, "defs");
+        const filtro = document.createElementNS(ns, "filter");
+        filtro.setAttribute("id", "quita-verde-ojos");
+        // La región se limita al propio video: sin esto el filtro pinta un
+        // marco negro alrededor.
+        filtro.setAttribute("x", "0");
+        filtro.setAttribute("y", "0");
+        filtro.setAttribute("width", "100%");
+        filtro.setAttribute("height", "100%");
+        filtro.setAttribute("color-interpolation-filters", "sRGB");
+
+        // Alfa = 1.3R - 2.4G + 1.3B + 1: cualquier verde (aunque no sea puro)
+        // se vuelve transparente; los párpados oscuros conservan su opacidad.
+        const matriz = document.createElementNS(ns, "feColorMatrix");
+        matriz.setAttribute("type", "matrix");
+        matriz.setAttribute("values", "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  1.3 -2.4 1.3 0 1");
+
+        // Umbral final: los restos semitransparentes de verde desaparecen.
+        const transfer = document.createElementNS(ns, "feComponentTransfer");
+        const alfa = document.createElementNS(ns, "feFuncA");
+        alfa.setAttribute("type", "table");
+        alfa.setAttribute("tableValues", "0 0 0.2 1");
+
+        // Los párpados quedan casi negros, sin verdor residual.
+        const oscurecer = document.createElementNS(ns, "feColorMatrix");
+        oscurecer.setAttribute("type", "matrix");
+        oscurecer.setAttribute(
+            "values",
+            "0.25 0 0 0 0  0 0.25 0 0 0  0 0 0.25 0 0  0 0 0 1 0"
+        );
+
+        transfer.appendChild(alfa);
+        filtro.appendChild(matriz);
+        filtro.appendChild(transfer);
+        filtro.appendChild(oscurecer);
+        defs.appendChild(filtro);
+        svg.appendChild(defs);
+        document.body.appendChild(svg);
+    }
+
+    function prepararVideoOjos(src) {
+        if (videoOjos && videoOjos.dataset.src === src) return;
+        detenerVideoOjos();
+        if (!contenedor) return;
+
+        crearFiltroOjos();
+
+        const video = document.createElement("video");
+        video.src = src;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "auto";
+        video.dataset.src = src;
+        video.style.position = "absolute";
+        video.style.pointerEvents = "none";
+        video.style.zIndex = "3";
+        video.style.opacity = "0";
+        video.style.objectFit = "cover";
+        video.style.filter = "url(#quita-verde-ojos)";
+        contenedor.appendChild(video);
+
+        video.addEventListener("loadeddata", function () {
+            ojosListo = true;
+            // Se calienta el decodificador para poder buscar frames sin
+            // depender de un gesto del usuario.
+            const promesa = video.play();
+            if (promesa && promesa.then) {
+                promesa.then(function () {
+                    video.pause();
+                }).catch(function () {});
+            }
+        });
+        video.addEventListener("error", function () {
+            console.error("No se pudo cargar el video de ojos:", src);
+        });
+
+        videoOjos = video;
+        ojosProgreso = 0;
+    }
+
+    function detenerVideoOjos() {
+        if (videoOjos) {
+            try {
+                videoOjos.pause();
+            } catch (error) {
+                // sin problema: el video ya estaba detenido
+            }
+            if (videoOjos.parentNode) videoOjos.parentNode.removeChild(videoOjos);
+            videoOjos = null;
+        }
+        ojosListo = false;
+        ojosProgreso = 0;
+    }
+
+    function actualizarOjos(p, dt) {
+        if (!obraActual || obraActual.pazEfecto !== "ojos") {
+            if (ojosProgreso !== 0) ojosProgreso = 0;
+            if (videoOjos) videoOjos.style.display = "none";
+            return;
+        }
+
+        // Los relojes limpios aparecen y desaparecen progresivos; la vuelta
+        // completa ronda los 6 segundos.
+        relojesFundido += (objetivoOjos - relojesFundido) * Math.min(1, dt * 0.8);
+        if (Math.abs(objetivoOjos - relojesFundido) < 0.002) {
+            relojesFundido = objetivoOjos;
+        }
+
+        if (!videoOjos) return;
+
+        // Cierra con el gesto y se abre en unos 6 segundos al soltarlo.
+        const suavidad = objetivoOjos > ojosProgreso ? 1.8 : 0.6;
+        ojosProgreso += (objetivoOjos - ojosProgreso) * Math.min(1, dt * suavidad);
+        if (Math.abs(objetivoOjos - ojosProgreso) < 0.002) {
+            ojosProgreso = objetivoOjos;
+        }
+
+        if (!ojosListo) return;
+
+        if (videoOjos.duration) {
+            const t = ojosProgreso * Math.max(0, videoOjos.duration - 0.04);
+            if (Math.abs(videoOjos.currentTime - t) > 0.02) {
+                try {
+                    videoOjos.currentTime = t;
+                } catch (error) {
+                    // el navegador todavía no permite buscar: se reintenta
+                }
+            }
+        }
+
+        if (ojosProgreso <= 0.01) {
+            videoOjos.style.display = "none";
+            return;
+        }
+
+        // El video se ajusta exactamente al rectángulo de la pintura.
+        const vista = vistaPintura(p);
+        videoOjos.style.left = vista.offsetX + "px";
+        videoOjos.style.top = vista.offsetY + "px";
+        videoOjos.style.width = vista.anchoDibujo + "px";
+        videoOjos.style.height = vista.altoDibujo + "px";
+
+        videoOjos.style.display = "block";
+        videoOjos.style.opacity = String(Math.min(1, ojosProgreso * 3));
+    }
+
+    // Nubes amarillas que rodean al personaje mientras se hace zoom.
+
     // Nubes amarillas que rodean al personaje mientras se hace zoom.
     function dibujarNubesAura(p) {
         if (!personajeCaja || profundidad <= 0.02) return;
@@ -1055,6 +2130,40 @@ const Artwork = (function () {
             y = cy + dx * sin + dy * cos;
         }
 
+        // Derretir (La persistencia de la memoria): la pinza ablanda los
+        // relojes. Cada zona estira su contenido hacia abajo con una caída
+        // viscosa: el reloj se descuelga como si se escurriera.
+        if (derretir > 0.001) {
+            for (const zona of zonasActivas) {
+                if (zona.efecto !== "derretir") continue;
+
+                const cx = zona.x * dimensiones.ancho;
+                const cy = zona.y * dimensiones.alto;
+                const radio = zona.radio * Math.min(dimensiones.ancho, dimensiones.alto);
+                const dx = x - cx;
+                const dy = y - cy;
+                const caida = Math.exp(-(dx * dx + dy * dy) / (radio * radio));
+                const fuerza = typeof zona.fuerza === "number" ? zona.fuerza : 1;
+                const peso = caida * fuerza * derretir;
+
+                if (peso <= 0.001) continue;
+
+                // La mitad inferior cae más: el reloj se descolga hacia
+                // abajo mientras el resto se estira. La caída llega más
+                // abajo que el propio reloj, como un goteo que se alarga.
+                const bajo = Math.max(0, Math.min(1, (dy / radio) * 0.5 + 0.5));
+                y = cy + dy * (1 + peso * 0.32) + peso * radio * (0.45 + 1.5 * bajo);
+
+                // Tambaleo: el reloj derretido se mece y gotea hacia los
+                // costados, con una segunda onda que le da vida propia.
+                const tambaleo =
+                    Math.sin((dy / radio) * 2.6 + faseDerretir) +
+                    0.5 * Math.sin((dy / radio) * 5.1 - faseDerretir * 1.7);
+                x += tambaleo * peso * radio * 0.16;
+                y += Math.sin(faseDerretir * 1.3) * peso * radio * 0.09;
+            }
+        }
+
         // Viento: desplazamiento horizontal del cielo, suavizado por la
         // máscara (cero sobre los cuerpos celestes y el paisaje), más una
         // ondulación que viaja con el viento y deja rastro de brisa.
@@ -1123,8 +2232,10 @@ const Artwork = (function () {
         p.textureMode(p.NORMAL);
 
         // Pasada base: la pintura original. Con el zoom se oscurece casi a
-        // negro (80%) para que el aura resalte.
-        const oscurecer = iluminacion * OSCURECER_MAX + profundidad * 0.8;
+        // negro (80%) para que el aura resalte; al derretir los relojes el
+        // fondo baja apenas un 15%, como si la escena se ensombreciera.
+        const oscurecer =
+            iluminacion * OSCURECER_MAX + profundidad * 0.8 + derretir * 0.15;
         const brillo = 255 * (1 - oscurecer);
         p.tint(brillo, brillo, brillo);
         dibujarPasada(p, vista, imagen, 0);
@@ -1332,6 +2443,30 @@ const Artwork = (function () {
         objetivoProfundidad = 0;
         atmosfera = 0;
         objetivoAtmosfera = 0;
+        derretir = 0;
+        objetivoDerretir = 0;
+        faseDerretir = 0;
+        ojosProgreso = 0;
+        objetivoOjos = 0;
+        recortesManecillas = null;
+        recortesRelojes = null;
+        faseManecillas = 0;
+        relojesFundido = 0;
+        sueno = 0;
+        objetivoSueno = 0;
+        suenoLado = 0.5;
+        objetivoSuenoLado = 0.5;
+        faseSueno = 0;
+        estrellasSueno.length = 0;
+        estrellasSuenoAcum = 0;
+        chorreos.length = 0;
+        chorreosAcum = 0;
+        disolucion = 0;
+        objetivoDisolucion = 0;
+        faseDisolucion = 0;
+        empujeDisolucion = 0;
+        cuadradosDisolucion.length = 0;
+        cuadradosDisolucionAcum = 0;
 
         // Resplandor: cada obra arranca con la pintura original.
         iluminacion = 0;
@@ -1355,6 +2490,13 @@ const Artwork = (function () {
 
         // Tormenta: pizarra limpia y lluvia en silencio.
         limpiarTormenta();
+
+        // Video de ojos del gesto de paz (La persistencia de la memoria).
+        if (obra.pazEfecto === "ojos" && obra.ojos) {
+            prepararVideoOjos(obra.ojos);
+        } else {
+            detenerVideoOjos();
+        }
 
         if (!sketchRef) return;
 
@@ -1430,6 +2572,34 @@ const Artwork = (function () {
                         }
                     );
                 }
+
+                // Manecillas sueltas para girar sobre los relojes.
+                if (obra.manecillas) {
+                    sketchRef.loadImage(
+                        obra.manecillas,
+                        function (imgManecillas) {
+                            if (id !== solicitudId) return;
+                            recortesManecillas = crearRecortesManecillas(imgManecillas);
+                        },
+                        function () {
+                            console.error("No se pudieron cargar las manecillas:", obra.manecillas);
+                        }
+                    );
+                }
+
+                // Relojes limpios que reemplazan a los pintados con la paz.
+                if (obra.relojes) {
+                    sketchRef.loadImage(
+                        obra.relojes,
+                        function (imgRelojes) {
+                            if (id !== solicitudId) return;
+                            recortesRelojes = crearRecortesRelojes(imgRelojes);
+                        },
+                        function () {
+                            console.error("No se pudieron cargar los relojes:", obra.relojes);
+                        }
+                    );
+                }
             },
             function () {
                 if (id !== solicitudId) return;
@@ -1463,10 +2633,14 @@ const Artwork = (function () {
                     typeof d === "number"
                         ? Math.max(0, Math.min(1, 1 - (d - 0.06) / 0.26))
                         : 0;
-            } else {
-                // La pinza manda sobre los cuerpos celestes a la vez:
-                // cerrada enciende el resplandor, abierta lo apaga. Sin manos
-                // no se toca el objetivo: se conserva el último estado.
+            } else if (
+                obraActual &&
+                ((Array.isArray(obraActual.cuerpos) && obraActual.cuerpos.length > 0) ||
+                    (Array.isArray(obraActual.luces) && obraActual.luces.length > 0))
+            ) {
+                // La pinza manda sobre los cuerpos celestes: cerrada enciende
+                // el resplandor, abierta lo apaga. Las obras sin cuerpos no
+                // oscurecen la escena al hacer pinza.
                 objetivoIluminacion = estado.pinzaCerrada ? 1 : 0;
             }
         }
@@ -1480,7 +2654,40 @@ const Artwork = (function () {
             }
         }
 
-        if (estado.molino && obraActual && Array.isArray(obraActual.zonas) && obraActual.zonas.length > 0) {
+        // Derretir: la pinza ablanda los relojes y, al abrirla, recuperan su
+        // forma original. Sin pinza cerrada el objetivo es volver.
+        if (obraActual && obraActual.pinzaEfecto === "derretir") {
+            const d = estado.pinzaDistancia;
+            objetivoDerretir =
+                estado.pinzaCerrada && typeof d === "number"
+                    ? Math.max(0, Math.min(1, 1 - (d - 0.06) / 0.26))
+                    : 0;
+        }
+
+        // Paz: el gesto cierra los ojos (video de párpados) y al soltarlo
+        // la mirada se abre poco a poco.
+        objetivoOjos = obraActual && obraActual.pazEfecto === "ojos" && estado.paz ? 1 : 0;
+
+        // Sueño (palma): la escena se vuelve onírica mientras la palma esté
+        // presente; la posición horizontal elige la paleta.
+        if (obraActual && obraActual.palmEfecto === "sueno") {
+            objetivoSueno = estado.palmaManos > 0 ? 1 : 0;
+            if (estado.palmaManos > 0 && typeof estado.palmaX === "number") {
+                objetivoSuenoLado = Math.max(0, Math.min(1, estado.palmaX));
+            }
+        }
+
+        // Índice: la obra se descompone en dimensiones mientras el gesto
+        // está presente; el movimiento de la mano agita los fragmentos.
+        objetivoDisolucion =
+            obraActual && obraActual.indiceEfecto === "disolver" && estado.molino ? 1 : 0;
+
+        if (
+            estado.molino &&
+            obraActual &&
+            Array.isArray(obraActual.zonas) &&
+            obraActual.zonas.some((zona) => zona.efecto === "remolino")
+        ) {
             molinoHasta = performance.now() + 900;
         }
     }
@@ -1498,6 +2705,7 @@ const Artwork = (function () {
     }
 
     function destruir() {
+        detenerVideoOjos();
         if (instancia) {
             instancia.remove();
         }
@@ -1538,6 +2746,30 @@ const Artwork = (function () {
         objetivoProfundidad = 0;
         atmosfera = 0;
         objetivoAtmosfera = 0;
+        derretir = 0;
+        objetivoDerretir = 0;
+        faseDerretir = 0;
+        ojosProgreso = 0;
+        objetivoOjos = 0;
+        recortesManecillas = null;
+        recortesRelojes = null;
+        faseManecillas = 0;
+        relojesFundido = 0;
+        sueno = 0;
+        objetivoSueno = 0;
+        suenoLado = 0.5;
+        objetivoSuenoLado = 0.5;
+        faseSueno = 0;
+        estrellasSueno.length = 0;
+        estrellasSuenoAcum = 0;
+        chorreos.length = 0;
+        chorreosAcum = 0;
+        disolucion = 0;
+        objetivoDisolucion = 0;
+        faseDisolucion = 0;
+        empujeDisolucion = 0;
+        cuadradosDisolucion.length = 0;
+        cuadradosDisolucionAcum = 0;
         meteoros.length = 0;
         lluviaAcumulador = 0;
         ultimaPaz = 0;

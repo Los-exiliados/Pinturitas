@@ -391,27 +391,37 @@ const Gamelogic = (function () {
         const nombrePaz =
             obra && obra.pazEfecto === "tormenta"
                 ? "Tormenta"
-                : obra && obra.meteoritos
-                    ? "Lluvia de meteoritos"
-                    : null;
+                : obra && obra.pazEfecto === "ojos"
+                    ? "Cerrar los ojos"
+                    : obra && obra.meteoritos
+                        ? "Lluvia de meteoritos"
+                        : null;
         const nombrePinza =
             obra && obra.pinzaEfecto === "profundidad"
                 ? "Profundidad"
-                : obra && Array.isArray(obra.cuerpos) && obra.cuerpos.length > 0
-                    ? "Iluminar"
-                    : null;
+                : obra && obra.pinzaEfecto === "derretir"
+                    ? "Derretir los relojes"
+                    : obra && Array.isArray(obra.cuerpos) && obra.cuerpos.length > 0
+                        ? "Iluminar"
+                        : null;
         const nombrePalma =
             obra && obra.palmEfecto === "atmosfera"
                 ? "Atardecer / Anochecer"
-                : obra && obra.viento
-                    ? "Viento"
-                    : null;
+                : obra && obra.palmEfecto === "sueno"
+                    ? "Universo onírico"
+                    : obra && obra.viento
+                        ? "Viento"
+                        : null;
         const nombreIndice =
-            obra && obra.indiceEfecto === "despejar"
-                ? "Despejar niebla"
-                : obra && Array.isArray(obra.zonas) && obra.zonas.length > 0
-                    ? "Remolinos"
-                    : null;
+            obra && obra.indiceEfecto === "disolver"
+                ? "Multiverso"
+                : obra && obra.indiceEfecto === "despejar"
+                    ? "Despejar niebla"
+                    : obra &&
+                        Array.isArray(obra.zonas) &&
+                        obra.zonas.some((zona) => zona.efecto === "remolino")
+                        ? "Remolinos"
+                        : null;
 
         let texto;
         if (estado.manos === 0) {
