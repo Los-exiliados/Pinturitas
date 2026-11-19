@@ -689,7 +689,7 @@ const Gamelogic = (function () {
     // El pie de la experiencia no se arma acá: lo renderiza ui.js con
     // `renderizarPosesExperiencia` a partir del contrato `gestos` de la obra.
     // Si se rearmara desde este módulo, borraría el contenedor `#posesGestos`
-    // y el chip fijo de salida, y la leyenda de la obra nunca se vería.
+    // y la leyenda de la obra nunca se vería.
     // Aloja el canvas de cámara de handpose.js dentro del recuadro del pie.
     // Ojo: p5 agrega ese canvas dentro del <main> de la bienvenida (que queda
     // oculto en otras pantallas), así que se lo busca en todo el documento y
