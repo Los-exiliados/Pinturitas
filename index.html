@@ -50,27 +50,12 @@
 
                 <h1 class="titular">
                     <span class="t-bienvenido">Bienvenido</span>
-                    <span class="t-conector">a</span>
                     <span class="t-nombre">Pinceladas<br>de vida</span>
                 </h1>
 
-                <p class="cita">
-                    «El arte no solo se observa, también se siente,
-                    se mueve y se transforma».
-                </p>
-
-                <p class="invita">
-                    Acércate, explora y descubre lo que tus manos pueden crear.
-                </p>
-
-                <div class="acciones">
-                    <button id="btnEntrar" class="boton">Explorar experiencia</button>
-                    <p class="pista"><span class="pulso" aria-hidden="true"></span>Cerrá el puño para entrar</p>
-                </div>
-
             </div>
 
-            <span class="marca marca--izq" aria-hidden="true">SALA 01 · INSTALACIÓN</span>
+            <p class="gesto-inicio">CIERRA EL PUÑO PARA EMPEZAR</p>
 
         </section>
 
@@ -90,7 +75,7 @@
                 </div>
             </div>
 
-            <span>2026</span>
+            <span>STYGO, VORHA y EDSAN</span>
         </footer>
 
     </main>
@@ -197,27 +182,30 @@
             </div>
 
             <div class="poses">
-                <div class="pose" title="Palma abierta moviéndose de lado: desplaza las pinceladas del cielo">
-                    <span class="pose-icono" aria-hidden="true">✋</span>
-                    <span class="pose-nombre">Palma</span>
-                    <span class="pose-desc">Mover el cielo</span>
+<div id="posesGestos" class="poses-gestos">
+    <div class="pose" data-pose="palma" title="Palma abierta moviéndose de lado: desplaza las pinceladas del cielo">
+        <span class="pose-icono" aria-hidden="true">✋</span>
+        <span class="pose-nombre">Palma</span>
+        <span class="pose-desc">Mover el cielo</span>
+    </div>
+    <div class="pose" data-pose="indice" title="Índice extendido: los remolinos giran como un molino">
+        <span class="pose-icono" aria-hidden="true">☝️</span>
+        <span class="pose-nombre">Índice</span>
+        <span class="pose-desc">Girar los remolinos</span>
+    </div>
+    <div class="pose" data-pose="paz" title="Paz: índice y medio extendidos">
+        <span class="pose-icono" aria-hidden="true">✌️</span>
+        <span class="pose-nombre">Paz</span>
+        <span class="pose-desc">Lluvia de meteoritos</span>
+    </div>
+    <div class="pose" data-pose="pinza" title="Pinza cerrada: pulgar e índice juntos encienden los cuerpos celestes">
+        <span class="pose-icono" aria-hidden="true">🤏</span>
+        <span class="pose-nombre">Pinza</span>
+        <span class="pose-desc">Encender los cuerpos</span>
+    </div>
+</div>
                 </div>
-                <div class="pose" title="Índice extendido: los remolinos giran como un molino">
-                    <span class="pose-icono" aria-hidden="true">☝️</span>
-                    <span class="pose-nombre">Índice</span>
-                    <span class="pose-desc">Girar los remolinos</span>
-                </div>
-                <div class="pose" title="Paz: índice y medio extendidos">
-                    <span class="pose-icono" aria-hidden="true">✌️</span>
-                    <span class="pose-nombre">Paz</span>
-                    <span class="pose-desc">Lluvia de meteoritos</span>
-                </div>
-                <div class="pose" title="Pinza cerrada: pulgar e índice juntos encienden los cuerpos celestes">
-                    <span class="pose-icono" aria-hidden="true">🤏</span>
-                    <span class="pose-nombre">Pinza</span>
-                    <span class="pose-desc">Encender los cuerpos</span>
-                </div>
-                <div class="pose pose--salida" title="Pulgar hacia abajo sostenido: salir de la obra y volver a la galería">
+                <div class="pose pose--salida" data-pose="salida" title="Pulgar hacia abajo sostenido: salir de la obra y volver a la galería">
                     <span class="pose-icono" aria-hidden="true">👎</span>
                     <span class="pose-nombre">Pulgar abajo</span>
                     <span class="pose-desc">Volver</span>
@@ -276,6 +264,9 @@
     <!-- Catálogo de obras e imágenes -->
     <script src="js/obras.js"></script>
 
+    <!-- Interacciones propias por obra (hoy: Monet) -->
+    <script src="js/monet.js"></script>
+
     <!-- Motor visual (lienzo de la pintura) -->
     <script src="js/artwork.js"></script>
 
@@ -288,8 +279,6 @@
     <!-- Navegación y controles de la interfaz -->
     <script src="js/ui.js"></script>
 
-    <!-- DEBUG TEMPORAL (ETAPA 2): estado de la pinza. Quitar junto con js/pinza-debug.js -->
-    <script src="js/pinza-debug.js"></script>
 
 </body>
 

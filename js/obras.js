@@ -17,14 +17,66 @@
 // - `x` e `y` son coordenadas normalizadas sobre el ancho y el alto de la
 //   imagen (0 a 1).
 // - `radio` es la fracción del lado menor de la imagen.
-// - `efecto` es "remolino", "empujar" o "estrella"; `fuerza` su intensidad.
+// - `efecto` hoy sólo implementa "remolino"; `fuerza` su intensidad.
 // - `act` arranca en 0 y es el motor quien la suaviza en runtime.
+//
+// Los gestos también son por obra, en el campo `gestos`. Es el único lugar
+// donde se decide qué hace cada gesto en cada pintura: una obra sin `gestos`
+// no reacciona a ningún gesto, y lo que declare una no se hereda a otra.
+//   gestos: { palma: { efecto: "oleaje", ... } }
+//
+// `mascara` es la ruta de un PNG en escala de grises que delimita la región
+// móvil de la obra (blanco = se mueve, negro = queda quieto). Sólo la usan
+// los efectos que deforman una parte de la pintura, como el oleaje.
+//
+// Los emisores de espuma se definen en el campo `espuma`:
+//   { x, y }
+// - Coordenadas normalizadas sobre la imagen (0 a 1).
+// - Son puntos EXTRA: además, el motor deriva emisores de la línea de agua
+//   de la máscara, así salpican todas las crestas de la obra.
+//
+// Las barcas se definen en el campo `barcas`:
+//   { x, y, rx, ry, fase, bob, deriva, inclina }
+// - Elipse en coordenadas normalizadas; `fase` las desincroniza.
+// - `bob` (px), `deriva` (px) e `inclina` (radianes) son su movimiento
+//   propio cuando el agua está viva o la corriente pasa por encima.
 //
 // Los cuerpos celestes iluminables se definen en el campo `cuerpos`:
 //   { nombre, x, y, radio }
 // - `x` e `y` están en PÍXELES de la imagen original (no normalizados).
 // - `radio` delimita la zona visual del resplandor, también en píxeles.
 // - No son zonas de selección: la pinza controla todos los cuerpos a la vez.
+//
+// Las obras con interacciones propias declaran el módulo que las atiende en
+// el campo `efectos`, más sus anclajes en píxeles de la imagen original:
+//   efectos: "monet"
+//   sol: { x, y, radio }
+// Las obras sin `efectos` no ejecutan ningún código de interacción propio.
+//
+// Los gestos globales de la palma (viento) y de la paz (meteoritos) se
+// activan por obra con los campos `viento: true` y `meteoritos: true`.
+// Sin esos campos, el gesto queda inactivo en esa obra: así cada pintura
+// puede darle a los mismos gestos funciones distintas.
+//
+// El pie de la experiencia lo arma ui.js (`renderizarPosesExperiencia`) con
+// esta precedencia: si la obra declara `gestos`, cada efecto se traduce a su
+// tarjeta con POSES_POR_EFECTO; si no, se usan las tarjetas propias de
+// `poses`; y si tampoco hay, la leyenda histórica. Las tarjetas propias se
+// definen por obra en `poses`:
+//   { icono, nombre, desc }
+// El pie muestra así solo las interacciones que esa pintura tiene activas.
+//
+// La pinza puede tener dos funciones según la obra: si la obra define
+// `pinzaEfecto: "profundidad"`, la distancia entre los dedos controla la
+// profundidad visual; si no, la pinza cerrada enciende los `cuerpos`.
+//
+// El aura del personaje se define en `personaje`: un PNG del mismo tamaño
+// que la pintura con fondo transparente y solo el personaje visible. Al
+// hacer zoom, el personaje se ilumina y se genera un halo difuminado que
+// sigue su silueta.
+//
+// La palma puede cambiar la atmósfera de la obra con `palmEfecto:
+// "atmósfera"`: la altura de la mano recorre despejado, nublado y oscuro.
 
 const CatalogoObras = [
     {
@@ -34,6 +86,14 @@ const CatalogoObras = [
         anio: 1889,
         tema: "noche",
         archivo: "obras/noche-estrellada.jpg",
+        viento: true,
+        meteoritos: true,
+        poses: [
+            { icono: "✋", nombre: "Palma", desc: "Viento" },
+            { icono: "☝️", nombre: "Índice", desc: "Girar remolinos" },
+            { icono: "✌️", nombre: "Paz", desc: "Lluvia de meteoritos" },
+            { icono: "🤏", nombre: "Pinza", desc: "Iluminar la noche" },
+        ],
         cuerpos: [
             { nombre: "luna creciente", x: 1505, y: 180, radio: 130 },
             { nombre: "estrella 1", x: 85, y: 289, radio: 58 },
@@ -109,6 +169,21 @@ const CatalogoObras = [
         anio: 1818,
         tema: "caminante",
         archivo: "obras/el-caminante-sobre-el-mar-de-nubes.jpg",
+        pazEfecto: "tormenta",
+        pinzaEfecto: "profundidad",
+        palmEfecto: "atmosfera",
+        indiceEfecto: "despejar",
+        luces: [],
+        fondo: "obras/fondo-caminante.png",
+        baseAtmosfera: "obras/nofondo-caminante.png",
+        personaje: "obras/personaje-caminante.png",
+        despeje: "obras/caminante-relleno.png",
+        poses: [
+            { icono: "☝️", nombre: "Índice", desc: "Despejar la niebla" },
+            { icono: "✋", nombre: "Palma", desc: "Atardecer / Anochecer" },
+            { icono: "✌️", nombre: "Paz", desc: "Tormenta" },
+            { icono: "🤏", nombre: "Pinza", desc: "Profundidad" },
+        ],
         zonas: [],
     },
     {
@@ -118,6 +193,92 @@ const CatalogoObras = [
         anio: 1831,
         tema: "ola",
         archivo: "obras/la-gran-ola-de-kanagawa.jpg",
+        // Sin `poses`: sus tarjetas salen del contrato `gestos` de abajo.
+        mascara: "obras/la-gran-ola-mascara.png",
+        gestos: {
+            // La palma abierta arrastra el mar y los barcos en horizontal.
+            // El cielo, el Fuji y el cartucho quedan quietos (máscara).
+            palma: {
+                efecto: "oleaje",
+                desplazamiento: 0.06, // tope de corrimiento, fracción del ancho
+                sensibilidad: 3.2, // recorrido de la mano -> corrimiento
+                rigidez: 15, // resorte del agua (1/s²): más bajo, más peso
+                amortiguacion: 7.8, // casi crítico: llega sin rebotar
+                profundidad: 0.35, // el agua de abajo acompaña más
+                desvio: 0.16, // cuánto se diferencian las franjas de agua
+                vaiven: 16, // ondulación vertical con el mar en movimiento
+                reposo: 7, // ondulación vertical con la palma delante
+                avivar: 3.5, // velocidad con que la palma despierta el mar
+                dormir: 1.2, // velocidad con que se duerme al irse la palma
+                retorno: 2.2, // segundos para acomodarse sin palma
+            },
+            // Índice extendido: la obra entera entra en tormenta, el cielo
+            // se oscurece, cae lluvia y la espuma salpica.
+            point: {
+                efecto: "tormenta",
+                oscuridad: 0.30, // tinte frío sobre la pintura
+                frialdad: 0.40, // cuánto vira al azul
+                gotas: 150, // gotas de lluvia simultáneas
+                salpicaduras: 36, // salpicaduras por segundo desde la espuma
+                agitacion: 30, // chapoteo vertical del mar, en px de imagen
+                rayos: 1.6, // segundos medios entre rayos a tormenta plena
+                entrada: 2.2, // velocidad con que se desata la tormenta
+                salida: 0.8, // velocidad con que escampa
+            },
+            // Dos dedos (una mano): corriente que atraviesa el mar.
+            peace: {
+                efecto: "corriente",
+                amplitud: 52, // px de arrastre a lo largo del canal
+                ancho: 0.12, // ancho mínimo del canal, fracción del ancho
+                avance: 0.14, // cuánto crece el ancho con el largo del canal
+                agitacion: 18, // px de chapoteo dentro del canal
+                espuma: 34, // partículas por segundo viajando
+                entrada: 3.0, // velocidad con que se abre la corriente
+                salida: 1.2, // velocidad con que se cierra
+            },
+            // Pinza: cae la noche. El cuadro se vuelve azul profundo,
+            // aparecen estrellas y el mar se agita. Al abrir, vuelve el día.
+            pinza: {
+                efecto: "noche",
+                oscuridad: 0.55, // tinte nocturno sobre la pintura
+                frialdad: 0.85, // cuánto vira al azul
+                agitacion: 26, // chapoteo vertical del mar, en px de imagen
+                estrellas: 70, // estrellas en el cielo
+                entrada: 0.9, // velocidad con que cae la noche (1/s)
+                salida: 1.3, // velocidad con que amanece (1/s)
+            },
+        },
+        // Cuerpo celeste que aparece con la pinza: el sol se pone en la
+        // transición y la luna queda en la noche plena. En reposo no hay
+        // astro: la pintura queda original.
+        astro: { x: 0.82, y: 0.16, radio: 0.034 },
+        // Cresta de la ola: de acá salen las salpicaduras.
+        espuma: [
+            { x: 0.14, y: 0.37 },
+            { x: 0.18, y: 0.30 },
+            { x: 0.22, y: 0.22 },
+            { x: 0.27, y: 0.15 },
+            { x: 0.32, y: 0.11 },
+            { x: 0.37, y: 0.10 },
+            { x: 0.42, y: 0.11 },
+            { x: 0.47, y: 0.14 },
+            { x: 0.51, y: 0.19 },
+            { x: 0.55, y: 0.25 },
+            { x: 0.59, y: 0.30 },
+            // Ola inferior izquierda.
+            { x: 0.03, y: 0.80 },
+            { x: 0.07, y: 0.82 },
+            { x: 0.11, y: 0.85 },
+        ],
+        // Barcas: cada una se mueve por su cuenta (vaivén, inclinación y
+        // deriva) cuando el agua está viva o la corriente pasa por encima.
+        // Las elipses coinciden con las que la máscara fuerza como agua.
+        barcas: [
+            { x: 0.205, y: 0.675, rx: 0.110, ry: 0.058, fase: 0.0, bob: 7, deriva: 4, inclina: 0.030 },
+            { x: 0.666, y: 0.742, rx: 0.115, ry: 0.032, fase: 1.7, bob: 6, deriva: 5, inclina: 0.026 },
+            { x: 0.865, y: 0.745, rx: 0.085, ry: 0.045, fase: 3.1, bob: 7, deriva: 4, inclina: 0.032 },
+            { x: 0.600, y: 0.848, rx: 0.205, ry: 0.055, fase: 4.6, bob: 8, deriva: 6, inclina: 0.022 },
+        ],
         zonas: [],
     },
     {
@@ -127,6 +288,24 @@ const CatalogoObras = [
         anio: 1872,
         tema: "impresion",
         archivo: "obras/impresion-sol-naciente.jpg",
+        efectos: "monet",
+        // Coordenadas medidas sobre la imagen original (1600 × 1242).
+        sol: { x: 974, y: 384, radio: 28 },
+        // Línea del horizonte: separa el cielo del agua.
+        horizonte: 620,
+        // Barcos: región que se anima, en píxeles de la imagen.
+        barcos: [
+            { x: 216, y: 670, ancho: 130, alto: 52, fase: 0.0 },
+            { x: 388, y: 747, ancho: 172, alto: 62, fase: 1.9 },
+            { x: 688, y: 805, ancho: 165, alto: 145, fase: 3.4 },
+        ],
+        // Tarjetas del pie para esta obra (mismo formato que las demás).
+        poses: [
+            { icono: "✋", nombre: "Palma", desc: "El mar cobra vida" },
+            { icono: "☝️", nombre: "Índice", desc: "El atardecer" },
+            { icono: "✌️", nombre: "Paz", desc: "El cielo se mueve" },
+            { icono: "🤏", nombre: "Pinza", desc: "Tormenta eléctrica" },
+        ],
         zonas: [],
     },
     {
@@ -136,7 +315,48 @@ const CatalogoObras = [
         anio: 1931,
         tema: "persistencia",
         archivo: "obras/la-persistencia-de-la-memoria.jpg",
-        zonas: [],
+        pazEfecto: "ojos",
+        ojos: "obras/ojos-efecto.mp4",
+        palmEfecto: "sueno",
+        indiceEfecto: "disolver",
+        manecillas: "obras/persistencia-manecillas.png",
+        relojes: "obras/persistencia-relojes.png",
+        pinzaEfecto: "derretir",
+        poses: [
+            { icono: "☝️", nombre: "Índice", desc: "Multiverso" },
+            { icono: "✋", nombre: "Palma", desc: "Universo onírico" },
+            { icono: "✌️", nombre: "Paz", desc: "Cerrar los ojos" },
+            { icono: "🤏", nombre: "Pinza", desc: "Derretir los relojes" },
+        ],
+        zonas: [
+            {
+                nombre: "reloj colgado",
+                x: 0.355,
+                y: 0.32,
+                radio: 0.12,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+            {
+                nombre: "reloj del mantel",
+                x: 0.215,
+                y: 0.66,
+                radio: 0.13,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+            {
+                nombre: "reloj del rostro",
+                x: 0.52,
+                y: 0.615,
+                radio: 0.08,
+                efecto: "derretir",
+                fuerza: 1.0,
+                act: 0,
+            },
+        ],
     },
     {
         id: "composicion-viii",
@@ -145,6 +365,26 @@ const CatalogoObras = [
         anio: 1923,
         tema: "composicion",
         archivo: "obras/composicion-8.jpg",
-        zonas: [],
+        indiceEfecto: "ondas",
+        palmEfecto: "explotar",
+        pazEfecto: "croma",
+        pinzaEfecto: "lluvia",
+        poses: [
+            { icono: "☝️", nombre: "Índice", desc: "Círculos que crecen" },
+            { icono: "✋", nombre: "Palma", desc: "Explosión geométrica" },
+            { icono: "✌️", nombre: "Paz", desc: "Onda cromática" },
+            { icono: "🤏", nombre: "Pinza", desc: "Lluvia y colisión" },
+        ],
+        zonas: [
+            { nombre: "circulo amarillo", x: 0.095, y: 0.68, radio: 0.075, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo azul", x: 0.37, y: 0.79, radio: 0.07, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo violeta 2", x: 0.72, y: 0.73, radio: 0.07, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo gris", x: 0.82, y: 0.78, radio: 0.09, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo turquesa", x: 0.75, y: 0.17, radio: 0.055, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo naranja", x: 0.69, y: 0.19, radio: 0.04, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo anillo", x: 0.48, y: 0.3, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo azul chico", x: 0.76, y: 0.38, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+            { nombre: "circulo rosa", x: 0.83, y: 0.47, radio: 0.045, efecto: "crecer", fuerza: 1.0, act: 0 },
+        ],
     },
 ];

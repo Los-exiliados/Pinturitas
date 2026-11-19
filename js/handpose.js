@@ -4,8 +4,10 @@
 
 const MAX_HANDS = 4;
 // "lite" reduce el coste de inferencia manteniendo los 21 keypoints.
-// Cambiar a "full" da algo más de precisión a cambio de velocidad.
-const MODEL_TYPE = "lite";
+// "full" da bastante más precisión en las articulaciones (mejor reconocimiento
+// de poses) a cambio de velocidad. Si la máquina de la instalación sufre,
+// volver a "lite".
+const MODEL_TYPE = "full";
 const KEYPOINT_COLOR = [0, 255, 179];
 const BONE_COLOR = [255, 255, 255, 170];
 // Peso de la posición nueva frente a la anterior al suavizar.
