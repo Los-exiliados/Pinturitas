@@ -377,16 +377,6 @@ body {
     line-height: 0.82;
 }
 
-.t-conector {
-    display: block;
-    font-family: var(--serif);
-    font-style: italic;
-    font-size: clamp(15px, min(1.9vw, 3.8vh), 44px);
-    line-height: 1;
-    color: var(--terracota);
-    margin: 0.28em 0 0.1em;
-}
-
 .t-nombre {
     display: block;
     font-family: var(--serif);
@@ -417,27 +407,53 @@ body {
     max-width: 44ch;
 }
 
-.acciones {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: clamp(12px, 1.4vw, 26px);
-    margin-top: clamp(14px, 2.6vh, 34px);
+/* Instrucción central: la experiencia no tiene botón, se inicia con el puño. */
+.gesto-inicio {
+    position: absolute;
+    z-index: 6;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(92%, 1600px);
+    margin: 0;
+    text-align: center;
+    font-family: var(--serif);
+    font-weight: 300;
+    font-size: clamp(26px, min(5.2vw, 8.4vh), 104px);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-transform: uppercase;
+    color: var(--beige);
+    text-shadow:
+        0 6px 34px rgba(8, 8, 12, 0.92),
+        0 0 90px rgba(8, 8, 12, 0.7);
+    pointer-events: none;
 }
 
-.pista {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    /* Columna angosta: el collage de fragmentos ocupa el resto de la fila,
-       así el texto no queda debajo de una obra. */
-    max-width: clamp(140px, 10vw, 200px);
-    font-size: clamp(10px, 0.8vw, 15px);
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    line-height: 1.35;
-    text-transform: uppercase;
-    color: rgba(242, 233, 216, 0.72);
+/* Punto que acompaña al texto: va en el flujo, no se despega al envolver. */
+.gesto-inicio::before {
+    content: "";
+    display: inline-block;
+    width: clamp(9px, 0.9vw, 16px);
+    height: clamp(9px, 0.9vw, 16px);
+    margin-right: 0.45em;
+    border-radius: 50%;
+    background-color: var(--terracota);
+    vertical-align: 0.12em;
+    animation: pulso 2.8s ease-out infinite;
+}
+
+.gesto-inicio::after {
+    content: "";
+    position: absolute;
+    inset: -18% -8%;
+    z-index: -1;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(10, 10, 14, 0.72),
+        rgba(10, 10, 14, 0) 72%
+    );
+    pointer-events: none;
 }
 
 .pulso {
@@ -1472,17 +1488,10 @@ canvas.p5Canvas {
         max-width: 100%;
     }
 
-    .acciones {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 14px;
-    }
-
-    .pista {
-        flex-wrap: wrap;
-        max-width: none;
-        letter-spacing: 0.16em;
-        line-height: 1.7;
+    .gesto-inicio {
+        gap: 10px;
+        letter-spacing: 0.02em;
+        line-height: 1.2;
     }
 
     .marca {

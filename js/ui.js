@@ -1202,7 +1202,6 @@ function activarParallax() {
 
 function conectarBotones() {
     const enlaces = [
-        ["btnEntrar", "galeria"],
         ["btnVolverInicio", "inicio"],
         ["btnVolverGaleria", "galeria"],
     ];

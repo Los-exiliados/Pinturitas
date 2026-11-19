@@ -89,7 +89,6 @@ const CatalogoObras = [
         viento: true,
         meteoritos: true,
         poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
             { icono: "✋", nombre: "Palma", desc: "Viento" },
             { icono: "☝️", nombre: "Índice", desc: "Girar remolinos" },
             { icono: "✌️", nombre: "Paz", desc: "Lluvia de meteoritos" },
@@ -180,7 +179,6 @@ const CatalogoObras = [
         personaje: "obras/personaje-caminante.png",
         despeje: "obras/caminante-relleno.png",
         poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
             { icono: "☝️", nombre: "Índice", desc: "Despejar la niebla" },
             { icono: "✋", nombre: "Palma", desc: "Atardecer / Anochecer" },
             { icono: "✌️", nombre: "Paz", desc: "Tormenta" },
@@ -303,7 +301,6 @@ const CatalogoObras = [
         ],
         // Tarjetas del pie para esta obra (mismo formato que las demás).
         poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
             { icono: "✋", nombre: "Palma", desc: "El mar cobra vida" },
             { icono: "☝️", nombre: "Índice", desc: "El atardecer" },
             { icono: "✌️", nombre: "Paz", desc: "El cielo se mueve" },
@@ -326,7 +323,6 @@ const CatalogoObras = [
         relojes: "obras/persistencia-relojes.png",
         pinzaEfecto: "derretir",
         poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
             { icono: "☝️", nombre: "Índice", desc: "Multiverso" },
             { icono: "✋", nombre: "Palma", desc: "Universo onírico" },
             { icono: "✌️", nombre: "Paz", desc: "Cerrar los ojos" },
@@ -374,7 +370,6 @@ const CatalogoObras = [
         pazEfecto: "croma",
         pinzaEfecto: "lluvia",
         poses: [
-            { icono: "✊", nombre: "Puño", desc: "Iniciar" },
             { icono: "☝️", nombre: "Índice", desc: "Círculos que crecen" },
             { icono: "✋", nombre: "Palma", desc: "Explosión geométrica" },
             { icono: "✌️", nombre: "Paz", desc: "Onda cromática" },
