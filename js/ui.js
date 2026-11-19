@@ -362,6 +362,12 @@ function cancelarCarga() {
 // --- Entrada desde la bienvenida ----------------------------------------
 
 function alIniciarGesto(evento) {
+    // En la galería, abrir la palma confirma la obra elegida con el meñique.
+    if (evento && evento.gesture === ENTRADA_PALMA.gesto) {
+        entrarConPalma();
+        return;
+    }
+
     if (!evento || evento.gesture !== PUÑO.gesto) return;
 
     // Toda pantalla con "volver" usa el mismo regreso: pulgar arriba.
@@ -786,10 +792,10 @@ function iniciarSalida() {
 // --- Puntero con el meñique ---------------------------------------------
 //
 // En la galería el meñique extendido (con índice, medio y anular recogidos)
-// funciona como puntero: la punta del meñique mueve un cursor por la pantalla
-// y resalta la tarjeta que queda debajo. Al recogerlo rápido sobre una tarjeta
-// —como si le picaras con la punta— se elige esa obra y se abre su
-// experiencia.
+// funciona como puntero: la punta del meñique mueve un cursor por TODA la
+// pantalla y resalta la tarjeta que queda debajo. Elegir y entrar son dos
+// gestos distintos: el meñique elige la obra y abrir la palma entra en ella.
+// El meñique ya no "pica" para abrir la experiencia.
 //
 // Se apoya sólo en lo que ya publican los otros módulos: `hands` con los 21
 // keypoints (handpose.js) y el encuadre `view` con el que se dibuja la cámara.
@@ -798,28 +804,26 @@ function iniciarSalida() {
 const PUNTERO = {
     // Cuánto tiene que sobresalir la punta del dedo respecto de su nudillo.
     extension: 1.12,
-    // Ventana para que el retroceso cuente como pique y no como bajar la mano.
-    piqueMs: 380,
-    // Cuánto tiene que retroceder el meñique, en tamaños de mano.
-    retroceso: 0.14,
-    // Frames seguidos con el meñique recogido antes de confirmar el pique.
-    framesPique: 2,
-    // Espera entre piques para no abrir dos obras seguidas.
-    enfriamientoMs: 700,
+};
+
+// Confirma la entrada con la palma abierta sobre la obra ya elegida.
+const ENTRADA_PALMA = {
+    gesto: "open_palm",
+    enfriamientoMs: 900,
 };
 
 const puntero = {
-    activo: false,
     visible: false,
     x: 0,
     y: 0,
-    tarjeta: null,
-    alcanzado: 0,
-    recogido: 0,
-    ultimoMs: 0,
-    bloqueadoHasta: 0,
+    tarjeta: null, // tarjeta resaltada en este instante
+    elegida: null, // última obra elegida: la consume la palma al abrirse
     nodo: null,
     estilo: null,
+};
+
+const estadoPalma = {
+    bloqueadoHasta: 0,
 };
 
 function crearCursorPuntero() {
@@ -901,15 +905,6 @@ function puntoEnPantalla(keypoint) {
     };
 }
 
-function tamanoMano(keypoints) {
-    return Math.max(distancia(keypoints[0], keypoints[9]), 1e-6);
-}
-
-// Alcance del dedo en tamaños de mano: sirve para medir el retroceso del pique.
-function alcanceDedo(keypoints, pip, tip) {
-    return distancia(keypoints[tip], keypoints[0]) / tamanoMano(keypoints);
-}
-
 // Scale-free: el dedo está extendido si su punta queda claramente más lejos
 // de la muñeca que su nudillo intermedio.
 function dedoExtendido(keypoints, pip, tip) {
@@ -947,6 +942,9 @@ function resaltarTarjeta(tarjeta) {
     if (puntero.tarjeta === tarjeta) return;
     if (puntero.tarjeta) puntero.tarjeta.classList.remove("bajo-puntero");
     puntero.tarjeta = tarjeta;
+    // La última tarjeta apuntada queda como elegida: al abrir la palma se
+    // entra ahí, aunque la mano ya no esté señalándola.
+    if (tarjeta) puntero.elegida = tarjeta;
     if (tarjeta) tarjeta.classList.add("bajo-puntero");
 }
 
@@ -971,18 +969,6 @@ function ocultarCursor() {
 function soltarPuntero() {
     resaltarTarjeta(null);
     ocultarCursor();
-    puntero.activo = false;
-    puntero.recogido = 0;
-    puntero.alcanzado = 0;
-}
-
-function picarPuntero(ahora) {
-    const tarjeta = puntero.tarjeta;
-
-    puntero.bloqueadoHasta = ahora + PUNTERO.enfriamientoMs;
-    soltarPuntero();
-
-    if (tarjeta) tarjeta.click();
 }
 
 function pasoPuntero() {
@@ -991,8 +977,7 @@ function pasoPuntero() {
         return;
     }
 
-    const ahora = performance.now();
-    if (transicionando || ahora < puntero.bloqueadoHasta) return;
+    if (transicionando) return;
 
     const mano =
         typeof hands !== "undefined" && Array.isArray(hands) && hands.length > 0
@@ -1013,34 +998,36 @@ function pasoPuntero() {
     }
 
     if (!posturaPuntero(keypoints)) {
-        // El meñique se recogió: si venía apuntando y lo hizo rápido sobre una
-        // tarjeta, cuenta como pique.
-        if (!puntero.activo) return;
-
-        puntero.recogido += 1;
-
-        const alcance = alcanceDedo(keypoints, 18, 20);
-        const rapido = ahora - puntero.ultimoMs <= PUNTERO.piqueMs;
-        const retrocede = puntero.alcanzado - alcance >= PUNTERO.retroceso;
-
-        if (rapido && retrocede && puntero.recogido >= PUNTERO.framesPique) {
-            if (puntero.tarjeta) picarPuntero(ahora);
-            else soltarPuntero();
-            return;
-        }
-
-        // Si tardó demasiado, fue bajar la mano y no un pique.
-        if (!rapido) soltarPuntero();
+        // El meñique dejó de apuntar: se oculta el cursor, pero la obra que
+        // estaba elegida se recuerda para que la palma pueda entrar en ella.
+        resaltarTarjeta(null);
+        ocultarCursor();
         return;
     }
 
-    puntero.activo = true;
-    puntero.recogido = 0;
-    puntero.ultimoMs = ahora;
-    puntero.alcanzado = alcanceDedo(keypoints, 18, 20);
-
     moverCursor(punta.x, punta.y);
     resaltarTarjeta(tarjetaEnPunto(punta.x, punta.y));
+}
+
+// Segundo gesto de la galería: abrir la palma entra en la obra elegida con el
+// meñique. Se dispara desde `gesturestart`, que gestures.js ya emite para
+// `open_palm`; no hace falta un detector propio ni tocar el reconocedor.
+function entrarConPalma() {
+    if (pantallaActual !== "galeria" || transicionando) return;
+
+    const ahora = performance.now();
+    if (ahora < estadoPalma.bloqueadoHasta) return;
+
+    const tarjeta = puntero.elegida;
+    if (!tarjeta || !tarjeta.isConnected) return;
+
+    const obra = typeof OBRAS !== "undefined"
+        ? OBRAS.find(function (item) { return item.id === tarjeta.dataset.obra; })
+        : null;
+    if (!obra) return;
+
+    estadoPalma.bloqueadoHasta = ahora + ENTRADA_PALMA.enfriamientoMs;
+    seleccionarObra(obra, tarjeta);
 }
 
 function cicloPuntero() {

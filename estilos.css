@@ -430,16 +430,15 @@ body {
     pointer-events: none;
 }
 
-/* Punto que acompaña al texto: va en el flujo, no se despega al envolver. */
+/* Punto centrado encima del texto, no a un costado. */
 .gesto-inicio::before {
     content: "";
-    display: inline-block;
+    display: block;
     width: clamp(9px, 0.9vw, 16px);
     height: clamp(9px, 0.9vw, 16px);
-    margin-right: 0.45em;
+    margin: 0 auto clamp(10px, 1.6vh, 22px);
     border-radius: 50%;
     background-color: var(--terracota);
-    vertical-align: 0.12em;
     animation: pulso 2.8s ease-out infinite;
 }
 
@@ -1257,9 +1256,9 @@ body {
 
 .poses {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: center;
     gap: clamp(12px, 1.6vw, 32px);
 }
 
@@ -1267,6 +1266,18 @@ body {
    debe meter una caja propia en el flex del pie. */
 .poses-gestos {
     display: contents;
+}
+
+/* Las cuatro tarjetas de interacción siempre en una sola fila horizontal,
+   sin importar el ancho de la ventana ni cuántas obras haya. */
+#experiencia .poses {
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+#experiencia .poses .pose {
+    flex: 0 0 auto;
+    white-space: nowrap;
 }
 
 .pose {
@@ -1489,7 +1500,6 @@ canvas.p5Canvas {
     }
 
     .gesto-inicio {
-        gap: 10px;
         letter-spacing: 0.02em;
         line-height: 1.2;
     }
