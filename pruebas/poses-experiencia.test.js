@@ -1,4 +1,4 @@
-"use strict";
+﻿"use strict";
 // Regresión: ui.js es el único dueño de la leyenda del pie de la experiencia.
 // Ejecutar desde la raíz: node --test pruebas/
 const test = require("node:test");
@@ -69,12 +69,12 @@ test("T1 gran-ola: 4 gestos en orden, con title no vacío", () => {
   for (const t of r) { assert.equal(t.className, "pose"); assert.ok(t.title.trim(), "title no vacío: " + t.nombre); }
 });
 
-test("T2 otras obras: conservan sus 5 tarjetas propias", () => {
+test("T2 otras obras: conservan sus tarjetas propias", () => {
   const cont = elemento("div");
   const ui = cargarUi(documento(cont));
   for (const obra of cargarObras().filter(o => o.id !== "gran-ola")) {
     const r = render(ui, cont, obra);
-    assert.equal(r.length, 5, obra.id);
+    assert.equal(r.length, obra.poses.length, obra.id);
     assert.deepEqual(r.map(t => [t.icono, t.nombre, t.desc, t.title]),
       Array.from(obra.poses, p => [p.icono, p.nombre, p.desc, p.nombre]), obra.id);
   }
@@ -129,4 +129,23 @@ test("T10 contrato de gestos sin tarjetas: cae a las tarjetas propias, nunca vac
 
   const soloTypo = render(ui, cont, { id: "efecto-typo-sin-poses", gestos: { palma: { efecto: "no-existe" } } });
   assert.deepEqual(soloTypo.map(t => [t.icono, t.nombre, t.desc]), Array.from(ui.legado, p => [p.icono, p.nombre, p.desc]));
+});
+
+// Regresi�n: en la galer�a el me�ique elige y solo abrir la palma entra.
+test("T11 galer�a: me�ique elige, palma entra, sin pique", () => {
+  const ui = leer("js", "ui.js");
+  assert.ok(!/picarPuntero/.test(ui), "el pique del me�ique ya no existe");
+  assert.ok(!/piqueMs|framesPique|retroceso/.test(ui), "config del pique eliminada");
+  assert.match(ui, /gesto: "open_palm"/, "la entrada por palma est� declarada");
+  assert.match(ui, /evento\.gesture === ENTRADA_PALMA\.gesto/, "gesturestart despacha la palma");
+  assert.match(ui, /seleccionarObra\(obra, tarjeta\)/, "la palma usa el �nico camino de selecci�n");
+  assert.match(ui, /puntero\.elegida = tarjeta/, "el me�ique recuerda la obra elegida");
+  assert.equal((ui.match(/Gamelogic\.abrir/g) || []).length, 1, "sigue habiendo una sola llamada a abrir");
+});
+
+test("T12 ayuda de la galer�a indica elegir con me�ique y entrar con palma", () => {
+  const html = leer("index.html");
+  const seccion = html.slice(html.indexOf('id="galeria"'), html.indexOf("id=" + '"' + "experiencia" + '"'));
+  assert.match(seccion, /Elegir obra/, "el meñique elige");
+  assert.match(seccion, /Entrar<\/span>/, "la palma entra");
 });
